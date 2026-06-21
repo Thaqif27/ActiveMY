@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.env
+activemy-a6bf1-firebase-adminsdk-fbsvc-2b2f6b5f8a.json
+scratch/
+archive/
+check_notifications.py
+check_users.py
+clean_foreign_events.py
+test_scraper.py
