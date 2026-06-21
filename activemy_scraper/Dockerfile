@@ -1,14 +1,8 @@
-# Use official python slim image
-FROM python:3.11-slim
+# Use Python 3.11 with Debian Bookworm (supported by Playwright)
+FROM python:3.11-bookworm
 
 # Set working directory
 WORKDIR /app
-
-# Install system dependencies required for Playwright and general utilities
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
 COPY requirements.txt .
