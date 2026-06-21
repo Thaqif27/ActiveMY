@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/constants.dart';
 
 @immutable
 class EventModel {
@@ -98,7 +99,7 @@ class EventModel {
     if (url.isEmpty) return url;
     if (kIsWeb && url.startsWith('http')) {
       // Use our local backend proxy to bypass CanvasKit CORS errors
-      return 'http://localhost:8000/proxy-image?url=${Uri.encodeComponent(url)}';
+      return '${AppConstants.scraperUrl}/proxy-image?url=${Uri.encodeComponent(url)}';
     }
     return url;
   }

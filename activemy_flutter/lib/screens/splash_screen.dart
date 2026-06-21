@@ -98,11 +98,7 @@ class _SplashScreenState extends State<SplashScreen>
       return _NextRoute.onboarding;
     }
 
-    if (kIsWeb) {
-      // Non-admins on Web are not allowed
-      await auth.signOut();
-      return _NextRoute.login;
-    }
+    // We now allow normal users to use the Web version as well!
 
     return _NextRoute.home;
   }
