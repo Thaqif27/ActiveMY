@@ -349,7 +349,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     if (pos == null) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _LocationDisabledCard(),
+                        child: _LocationDisabledCard(
+                          onRetry: () {
+                            setState(() {
+                              _locationFuture = _resolveLocation();
+                            });
+                          },
+                        ),
                       );
                     }
                     return StreamBuilder<List<EventModel>>(
@@ -1470,6 +1476,10 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _LocationDisabledCard extends StatelessWidget {
+  final VoidCallback? onRetry;
+
+  const _LocationDisabledCard({this.onRetry});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1511,6 +1521,11 @@ class _LocationDisabledCard extends StatelessWidget {
               ],
             ),
           ),
+          if (onRetry != null)
+            IconButton(
+              icon: const Icon(Icons.refresh, color: AppColors.primary),
+              onPressed: onRetry,
+            ),
         ],
       ),
     );
