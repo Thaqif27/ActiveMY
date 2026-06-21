@@ -25,11 +25,12 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("activemy-recommendation")
 
-FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH")
+FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH", "activemy-a6bf1-firebase-adminsdk.json")
+FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-if not FIREBASE_CREDENTIALS_PATH:
-    raise RuntimeError("FIREBASE_CREDENTIALS_PATH is not set.")
+if not FIREBASE_CREDENTIALS_PATH and not FIREBASE_CREDENTIALS_JSON:
+    raise RuntimeError("FIREBASE_CREDENTIALS_PATH or FIREBASE_CREDENTIALS_JSON is not set.")
 
 if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY is not set.")
@@ -43,7 +44,12 @@ AI_MODEL = "llama-3.1-8b-instant"
 
 # Initialize Firebase Admin SDK if not already initialized
 if not firebase_admin._apps:
-    creds = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+    if FIREBASE_CREDENTIALS_JSON:
+        import json
+        cred_dict = json.loads(FIREBASE_CREDENTIALS_JSON)
+        creds = credentials.Certificate(cred_dict)
+    else:
+        creds = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
     firebase_admin.initialize_app(creds)
 
 

@@ -37,16 +37,19 @@ import firebase_admin
 from firebase_admin import credentials, firestore, messaging
 
 try:
-    cred_path = os.getenv('FIREBASE_CREDENTIALS_PATH', 'activemy-a6bf1-firebase-adminsdk.json')
-    if os.path.exists(cred_path):
-        cred = credentials.Certificate(cred_path)
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred)
-        db = firestore.client()
+    if not firebase_admin._apps:
+        cred_json_str = os.getenv('FIREBASE_CREDENTIALS_JSON')
+        if cred_json_str:
+            import json
+            cred_dict = json.loads(cred_json_str)
+            cred = credentials.Certificate(cred_dict)
+        else:
+            cred_path = os.getenv('FIREBASE_CREDENTIALS_PATH', 'activemy-a6bf1-firebase-adminsdk.json')
+            cred = credentials.Certificate(cred_path)
+            
+        firebase_admin.initialize_app(cred)
         logger.info("Firebase initialized successfully")
-    else:
-        logger.warning(f"Firebase credentials not found at {cred_path}")
-        db = None
+    db = firestore.client()
 except Exception as e:
     logger.error(f"Firebase initialization failed: {e}")
     db = None
