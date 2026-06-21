@@ -10,6 +10,7 @@ import '../models/event_model.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../utils/theme.dart';
+import 'package:flutter/foundation.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final EventModel event;
@@ -93,6 +94,20 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   Future<void> _openNavigation() async {
     try {
+      if (kIsWeb) {
+        final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=${widget.event.lat},${widget.event.lng}');
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.externalApplication);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not open Google Maps.')),
+            );
+          }
+        }
+        return;
+      }
+
       final availableMaps = await MapLauncher.installedMaps;
       if (availableMaps.isEmpty) {
         if (mounted) {
