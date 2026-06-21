@@ -1,0 +1,11 @@
+# Virtual Environment
+.venv/
+
+# Scratch Python Scripts
+add_admin_button.py
+check_users.py
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

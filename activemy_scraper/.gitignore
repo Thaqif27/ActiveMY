@@ -1,0 +1,16 @@
+# Environment variables
+.env
+activemy-a6bf1-firebase-adminsdk-fbsvc-2b2f6b5f8a.json
+# Scratch and unused scripts
+check_notifications.py
+check_users.py
+clean_foreign_events.py
+test_scraper.py
+archive/
+scratch/
+scrapers/checkpointspot_scraper.py
+scrapers/eventbrite_api.py
+scrapers/finishers_scraper.py
+scrapers/heyjom_scraper.py
+scrapers/howei_scraper.py
+scrapers/runningmalaysia_scraper.py

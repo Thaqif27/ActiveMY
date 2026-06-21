@@ -1,0 +1,4 @@
+node_modules/
+.firebase/
+check.js
+check_users.js
