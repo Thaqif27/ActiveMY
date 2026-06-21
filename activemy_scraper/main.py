@@ -38,8 +38,15 @@ from firebase_admin import credentials, firestore, messaging
 
 try:
     if not firebase_admin._apps:
+        cred_b64 = os.getenv('FIREBASE_CREDENTIALS_BASE64')
         cred_json_str = os.getenv('FIREBASE_CREDENTIALS_JSON')
-        if cred_json_str:
+        
+        if cred_b64:
+            import base64, json
+            cred_json_decoded = base64.b64decode(cred_b64).decode('utf-8')
+            cred_dict = json.loads(cred_json_decoded)
+            cred = credentials.Certificate(cred_dict)
+        elif cred_json_str:
             import json
             cred_dict = json.loads(cred_json_str)
             cred = credentials.Certificate(cred_dict)
