@@ -650,6 +650,30 @@ async def get_events(limit: int = 100, category: str = None):
         for doc in events
     ]
 
+@app.get("/proxy-image")
+async def proxy_image(url: str):
+    """Proxy images to bypass CORS issues in Flutter Web."""
+    try:
+        import httpx
+        from fastapi.responses import StreamingResponse
+        
+        # Add a user agent to avoid 403 Forbidden from some servers
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        
+        async def fetch_and_stream():
+            async with httpx.AsyncClient() as client:
+                async with client.stream("GET", url, headers=headers, follow_redirects=True) as response:
+                    if response.status_code != 200:
+                        yield b""
+                        return
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+        
+        return StreamingResponse(fetch_and_stream(), media_type="image/jpeg")
+    except Exception as e:
+        logger.error(f"Image proxy error for {url}: {e}")
+        return {"error": str(e)}
+
 @app.get("/stats")
 async def get_stats():
     """Get statistics about events in Firestore"""
