@@ -270,8 +270,20 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<Set<Marker>> _buildMarkers(Map<String, List<EventModel>> locationGroups) async {
+  Future<Set<Marker>> _buildMarkers(Map<String, List<EventModel>> locationGroups, Position? currentPos) async {
     Set<Marker> markers = {};
+    
+    // Add current location marker (especially for Web where myLocationEnabled is buggy)
+    if (currentPos != null) {
+      markers.add(Marker(
+        markerId: const MarkerId('current_location'),
+        position: LatLng(currentPos.latitude, currentPos.longitude),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        infoWindow: const InfoWindow(title: '📍 You are here'),
+        zIndex: 999, // keep it on top
+      ));
+    }
+
     for (var entry in locationGroups.entries) {
       final locKey = entry.key;
       final eventsAtLoc = entry.value;
@@ -425,7 +437,7 @@ class _MapScreenState extends State<MapScreen> {
               }
               
               return FutureBuilder<Set<Marker>>(
-                future: _buildMarkers(locationGroups),
+                future: _buildMarkers(locationGroups, position),
                 builder: (context, markerSnapshot) {
                   final markers = markerSnapshot.data ?? {};
 
