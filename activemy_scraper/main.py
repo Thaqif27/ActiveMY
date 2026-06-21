@@ -164,6 +164,8 @@ def geocode_location(location: str) -> tuple:
     HARDCODED_OVERRIDES = {
         "DATARAN MERDEKA": (3.1466, 101.6958),
         "PUTRAJAYA": (2.9283, 101.6869),
+        "PWCC": (5.366070, 100.315650),
+        "PENANG WATERFRONT CONVENTION CENTRE": (5.366070, 100.315650),
     }
     
     for key, coords in HARDCODED_OVERRIDES.items():
