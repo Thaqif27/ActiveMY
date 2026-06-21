@@ -41,6 +41,11 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
+  web:
+    generate: true
+    image_path: "assets/images/app_icon_padded_rounded.png"
+    background_color: "#FFFFFF"
+    theme_color: "#e34e06"
   image_path: "assets/images/app_icon_padded_rounded.png"
   adaptive_icon_background: "#e34e06"
   adaptive_icon_foreground: "assets/images/app_icon_padded.png"
