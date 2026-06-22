@@ -209,13 +209,14 @@ def deduplicate_events(events: List[Dict]) -> List[Dict]:
             unique.append(event)
     return unique
 
-async def upload_to_firestore(events: List[Dict], source: str) -> int:
-    """Upload events to Firestore"""
-    if not db:
-        logger.warning("Firestore not available, skipping upload")
-        return 0
-    
+async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, List[Dict]]:
+    """Upload unique events to Firestore with AI processing"""
+    if not events or not db:
+        return 0, []
+        
     uploaded = 0
+    newly_uploaded_events = []
+    
     for event in events:
         try:
             event_date = datetime.fromisoformat(event['date'])
@@ -350,14 +351,19 @@ async def upload_to_firestore(events: List[Dict], source: str) -> int:
                 'is_virtual': is_virtual,
                 'ai_processed': ai_processed
             }
-            db.collection('events').add(event_data)
+            # Use document().set() to easily capture the generated ID
+            doc_ref = db.collection('events').document()
+            event_data['id'] = doc_ref.id
+            doc_ref.set(event_data)
+            
+            newly_uploaded_events.append(event_data)
             uploaded += 1
             logger.info(f"Uploaded: {event['title'][:50]} - {event_date.date()}")
             
         except Exception as e:
             logger.error(f"Upload error for {event.get('title', 'unknown')}: {e}")
     
-    return uploaded
+    return uploaded, newly_uploaded_events
 
 # ============ SCRAPER WRAPPERS (Only 6) ============
 
@@ -436,6 +442,7 @@ async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
     
     total_found = 0
     total_uploaded = 0
+    all_new_events = []
     start_time = datetime.now()
     
     for name, scraper_func in scrapers.items():
@@ -445,7 +452,7 @@ async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
             
             if events:
                 unique_events = deduplicate_events(events)
-                uploaded = await upload_to_firestore(unique_events, name)
+                uploaded, new_events_list = await upload_to_firestore(unique_events, name)
                 results[name] = {
                     'found': len(unique_events),
                     'uploaded': uploaded,
@@ -453,6 +460,7 @@ async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
                 }
                 total_found += len(unique_events)
                 total_uploaded += uploaded
+                all_new_events.extend(new_events_list)
                 logger.info(f"OK {name}: Found {len(unique_events)}, Uploaded {uploaded}")
             else:
                 results[name] = {
@@ -492,12 +500,17 @@ async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
         except Exception as e:
             logger.error(f"Failed to write log to Firestore: {e}")
             
-    # Trigger AI Recommendations if new events were uploaded
+    # Trigger Nearby Radar and AI Recommendations if new events were uploaded
     if total_uploaded > 0:
-        logger.info(f"Triggering recommendations because {total_uploaded} new events were found...")
+        logger.info(f"Triggering Nearby Radar and AI Recommendations for {total_uploaded} new events...")
         import threading
-        from recommendation_engine import recommend_for_all_users
-        threading.Thread(target=recommend_for_all_users).start()
+        from recommendation_engine import send_nearby_alerts, recommend_for_all_users
+        
+        def run_notification_engines():
+            send_nearby_alerts(all_new_events)
+            recommend_for_all_users()
+            
+        threading.Thread(target=run_notification_engines).start()
             
     return results
 
@@ -626,7 +639,7 @@ async def scrape_single(source: str):
     
     if events:
         unique_events = deduplicate_events(events)
-        uploaded = await upload_to_firestore(unique_events, source)
+        uploaded, new_events_list = await upload_to_firestore(unique_events, source)
         return {
             "source": source,
             "found": len(unique_events),

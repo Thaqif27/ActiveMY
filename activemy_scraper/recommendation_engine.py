@@ -39,9 +39,9 @@ if not GROQ_API_KEY:
 # Initialize Groq client
 _groq_client = Groq(api_key=GROQ_API_KEY)
 
-# Model to use — llama-3.1-8b-instant
-# - 30 RPM
-AI_MODEL = "llama-3.1-8b-instant"
+# Model to use — llama-3.3-70b-versatile
+# - Highest intelligence for behavior reading
+AI_MODEL = "llama-3.3-70b-versatile"
 
 # Initialize Firebase Admin SDK if not already initialized
 if not firebase_admin._apps:
@@ -258,16 +258,16 @@ AVAILABLE NEW EVENTS (Sorted by nearest distance if location known):
 {events_text}
 
 TASK:
-Return ONLY a valid JSON object (no markdown, no extra text) with this structure:
+Return ONLY a valid JSON object (no markdown, no extra text) with this strict structure:
 {{
     "event_id": "...",
-    "notification_title": "...",
-    "notification_body": "..."
+    "title": "...",
+    "body": "..."
 }}
 
 RULES:
-1. "notification_title" must be short (max 40 chars) and catchy (e.g. "New Hiking Trail Near Shah Alam! 🥾").
-2. "notification_body" must be a personalized message (max 100 chars) explaining why it matches their behavior and location (e.g. "Since you love hiking, check out this new event just 10km away!").
+1. "title" must be short (max 40 chars) and catchy (e.g. "New Hiking Trail Near Shah Alam! 🥾").
+2. "body" must be a personalized message (max 100 chars) explaining why it matches their behavior and location.
 3. Only pick ONE event. If no events match their behavior, return an empty JSON {{}}.
 {location_rule}
 """
@@ -311,8 +311,8 @@ RULES:
             logger.info(f"Generated custom recommendation for user {uid}")
             return {
                 "event_id": result.get("event_id"),
-                "title": result.get("notification_title"),
-                "body": result.get("notification_body")
+                "title": result.get("title"),
+                "body": result.get("body")
             }
 
         except json.JSONDecodeError as e:
@@ -347,11 +347,20 @@ def send_recommendation_notification(uid: str, event_id: str, title: str, body: 
             "uid": uid,
             "title": title,
             "body": body,
+            "type": "recommendation",
             "event_id": event_id,
             "sent_at": datetime.now(timezone.utc),
             "is_read": False,
         }
     )
+
+    # Add to user's permanent memory lock so it never gets sent again
+    try:
+        db.collection("users").document(uid).update({
+            "recommended_events": firestore.ArrayUnion([event_id])
+        })
+    except Exception as e:
+        logger.warning(f"Failed to update recommended_events array for user {uid}: {e}")
 
     # Fetch user FCM token for Push Notification
     user_doc = db.collection("users").document(uid).get()
@@ -414,10 +423,9 @@ def recommend_for_user(uid: str) -> dict:
             "lng": user_data.get("last_known_lng")
         }
 
-        # Fetch previously recommended event IDs to prevent duplicates
-        from google.cloud.firestore_v1.base_query import FieldFilter
-        notif_docs = db.collection("notifications").where(filter=FieldFilter("uid", "==", uid)).get()
-        notified_event_ids = {doc.to_dict().get("event_id") for doc in notif_docs}
+        # Fetch previously recommended event IDs from permanent memory to prevent duplicate spam
+        # Even if the user deletes the notification, the AI will remember.
+        notified_event_ids = set(user_data.get("recommended_events", []))
 
         # Fetch upcoming events (only ones scraped in the last 2 days)
         events = get_upcoming_events(limit=50, recent_days=2)
@@ -511,6 +519,62 @@ def recommend_for_all_users() -> dict:
             "error": str(e),
         }
 
+def send_nearby_alerts(new_events: list) -> None:
+    """
+    Sends real-time Nearby Alerts for newly scraped events that are within 30km of the user.
+    Uses the recommended_events lock to prevent duplicate spam.
+    """
+    if not new_events:
+        return
+        
+    db = _firebase_client()
+    try:
+        users_docs = db.collection("users").stream()
+        
+        import math
+        def calc_dist(lat1, lon1, lat2, lon2):
+            if not lat1 or not lon1 or not lat2 or not lon2:
+                return float('inf')
+            try:
+                R = 6371
+                dLat = math.radians(lat2 - lat1)
+                dLon = math.radians(lon2 - lon1)
+                a = math.sin(dLat/2) * math.sin(dLat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dLon/2) * math.sin(dLon/2)
+                return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+            except:
+                return float('inf')
+
+        for doc in users_docs:
+            user_data = doc.to_dict() or {}
+            uid = doc.id
+            user_lat = user_data.get("last_known_lat")
+            user_lng = user_data.get("last_known_lng")
+            
+            if not user_lat or not user_lng:
+                continue
+                
+            notified_event_ids = set(user_data.get("recommended_events", []))
+            
+            for event in new_events:
+                event_id = event.get("id")
+                if not event_id or event_id in notified_event_ids:
+                    continue
+                    
+                dist = calc_dist(user_lat, user_lng, event.get("lat"), event.get("lng"))
+                if dist <= 30.0:
+                    logger.info(f"Nearby Alert: Event {event_id} is {dist:.1f}km from user {uid}")
+                    title = f"📍 New Event Near You!"
+                    body = f"{event.get('title', 'A new event')} is happening just {int(dist)}km away!"
+                    
+                    try:
+                        send_recommendation_notification(uid, event_id, title, body)
+                    except Exception as e:
+                        logger.error(f"Failed to send nearby alert: {e}")
+                    # Break to avoid spamming multiple nearby alerts to the same user at once
+                    break
+                    
+    except Exception as e:
+        logger.error(f"Nearby Alerts job failed: {e}")
 
 if __name__ == "__main__":
     # Test the recommendation engine
