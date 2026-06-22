@@ -775,7 +775,8 @@ def check_and_run_scheduled_scrape():
         if not enabled:
             return
             
-        now = datetime.now()
+        from datetime import timezone, timedelta
+        now = datetime.now(timezone(timedelta(hours=8)))
         
         # Check if we reached the run_hour today
         if now.hour == run_hour:
