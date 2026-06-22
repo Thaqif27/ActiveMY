@@ -151,7 +151,7 @@ def process_event_with_ai_json(event_data: Dict) -> Dict:
                 
         for attempt in range(3):
             try:
-                time.sleep(5.0) # Base delay to stay under 15 RPM
+                time.sleep(10.0) # Very safe delay to avoid 20 RPM limit completely
                 response = gemini_model.generate_content(contents)
                 text = response.text
                 data = json.loads(text)
