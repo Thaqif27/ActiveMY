@@ -222,7 +222,7 @@ class _AdminScraperScreenState extends State<AdminScraperScreen> {
                         ),
                       ),
                       child: DataTable(
-                        columnSpacing: 32,
+                        columnSpacing: 16,
                         headingRowHeight: 56,
                         dataRowMinHeight: 80,
                         dataRowMaxHeight: 120,
@@ -230,9 +230,9 @@ class _AdminScraperScreenState extends State<AdminScraperScreen> {
                           DataColumn(label: Text('DATE/TIME')),
                           DataColumn(label: Text('TRIGGER')),
                           DataColumn(label: Text('STATUS')),
-                          DataColumn(label: Text('SOURCES (UP/FOUND)')),
+                          DataColumn(label: Text('SOURCES')),
                           DataColumn(label: Text('FOUND')),
-                          DataColumn(label: Text('UPLOAD')),
+                          DataColumn(label: Text('NEW')),
                           DataColumn(label: Text('DUR (s)')),
                         ],
                         rows: logs.map((log) {
@@ -259,7 +259,7 @@ class _AdminScraperScreenState extends State<AdminScraperScreen> {
                               )),
                               DataCell(
                                 SizedBox(
-                                  width: 280,
+                                  width: 230,
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(vertical: 8),
                                     child: Wrap(
