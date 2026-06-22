@@ -134,7 +134,6 @@ def process_event_with_ai_json(event_data: Dict) -> Dict:
         import PIL.Image
         import io
         
-        time.sleep(4.5) # Keep under Gemini 15 RPM limit
         if not gemini_model:
             logger.error("Gemini model not initialized")
             return None
@@ -150,13 +149,25 @@ def process_event_with_ai_json(event_data: Dict) -> Dict:
             except Exception as img_err:
                 logger.warning(f"Failed to fetch image for Gemini: {img_err}")
                 
-        response = gemini_model.generate_content(contents)
-        text = response.text
-        data = json.loads(text)
-        _location_cache[cache_key] = data
-        return data
+        for attempt in range(3):
+            try:
+                time.sleep(5.0) # Base delay to stay under 15 RPM
+                response = gemini_model.generate_content(contents)
+                text = response.text
+                data = json.loads(text)
+                _location_cache[cache_key] = data
+                return data
+            except Exception as retry_err:
+                if '429' in str(retry_err) or 'quota' in str(retry_err).lower() or 'exhausted' in str(retry_err).lower():
+                    logger.warning(f"Rate limit hit, sleeping for 30s before retry {attempt+1}... ({retry_err})")
+                    time.sleep(30)
+                else:
+                    logger.error(f"AI generation error: {retry_err}")
+                    return None
+                    
+        return None
     except Exception as e:
-        logger.error(f"AI JSON extraction failed: {e}")
+        logger.error(f"AI setup failed: {e}")
         return None
 
 def geocode_location(location: str) -> tuple:
@@ -221,6 +232,7 @@ async def upload_to_firestore(events: List[Dict], source: str) -> int:
             category = event.get('category', 'running')
             ai_processed = False
             lat, lng = 0.0, 0.0
+            venue = "Malaysia"
             
             if ai_data:
                 if not ai_data.get('is_malaysia', True):
