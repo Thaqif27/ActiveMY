@@ -78,32 +78,33 @@ except ImportError as e:
 
 # ============ HELPER FUNCTIONS ============
 import googlemaps
-from groq import Groq
+import google.generativeai as genai
 
 gmaps = googlemaps.Client(key=os.getenv('GOOGLE_GEOCODING_API_KEY', ''))
-groq_api_key = os.getenv('GROQ_API_KEY', '')
-try:
-    groq_client = Groq(api_key=groq_api_key) if groq_api_key else None
-except Exception as e:
-    logger.error(f"Failed to init Groq: {e}")
-    groq_client = None
+gemini_api_key = os.getenv('GEMINI_API_KEY', '')
+if gemini_api_key:
+    genai.configure(api_key=gemini_api_key)
+    gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"response_mime_type": "application/json"})
+else:
+    gemini_model = None
 
 # Simple in-memory cache to prevent duplicate AI calls
 _location_cache = {}
 
 def process_event_with_ai_json(event_data: Dict) -> Dict:
-    """Use Groq Llama 3 to extract structured location and category data"""
+    """Use Gemini 1.5 Flash Vision to extract structured location and category data"""
     title = event_data.get('title', '')
     raw_loc = event_data.get('location', '')
     desc = event_data.get('description', '')
     raw_cat = event_data.get('category', '')
+    image_url = event_data.get('image_url', '')
     
     cache_key = f"{title}_{raw_loc[:30]}"
     if cache_key in _location_cache:
         return _location_cache[cache_key]
         
     prompt = f"""
-    Analyze this sporting event to extract precise details.
+    Analyze this sporting event poster image and text details to extract precise information.
     
     Title: {title}
     Raw Location: {raw_loc}
@@ -111,21 +112,17 @@ def process_event_with_ai_json(event_data: Dict) -> Dict:
     Description: {desc[:500]}
     
     Tasks:
-    1. Identify the physical venue name. If the event is fully virtual with no physical location, set the venue to "VIRTUAL". If it's a HYBRID event (has a physical location AND virtual category), return the actual physical venue and set is_virtual to true.
+    1. Identify the EXACT physical venue name from the poster image (e.g., "Penang Waterfront Convention Centre", "Dataran Merdeka"). If the event is fully virtual with no physical location, set the venue to "VIRTUAL". If it's a HYBRID event, return the actual physical venue and set is_virtual to true.
     2. Determine the City and State in Malaysia.
-    3. Determine if the event is hosted inside Malaysia. If it is clearly hosted in another country (like Singapore, Indonesia, Australia), set is_malaysia to false.
-    4. Estimate the Latitude and Longitude for this venue accurately.
-    5. Refine the category to STRICTLY one of these: ["running", "cycling", "hiking", "triathlon", "adventure"]. If unsure, default to "running".
-    
-    Respond ONLY with a valid JSON object matching this exact schema:
+    3. Determine if the event is hosted inside Malaysia. If it is clearly hosted in another country, set is_malaysia to false.
+    4. Refine the category to STRICTLY one of these: ["running", "cycling", "hiking", "triathlon", "adventure"]. If unsure, default to "running".
+    5. Output the result in JSON format EXACTLY matching this schema:
     {{
         "venue": "String",
         "city": "String",
         "state": "String",
         "is_malaysia": true,
         "is_virtual": false,
-        "lat": 0.0,
-        "lng": 0.0,
         "category": "String"
     }}
     """
@@ -133,21 +130,28 @@ def process_event_with_ai_json(event_data: Dict) -> Dict:
     try:
         import time
         import json
-        time.sleep(2.5) # Keep under Groq free tier limit
-        if not groq_client:
+        import requests
+        import PIL.Image
+        import io
+        
+        time.sleep(4.5) # Keep under Gemini 15 RPM limit
+        if not gemini_model:
+            logger.error("Gemini model not initialized")
             return None
             
-        chat_completion = groq_client.chat.completions.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            model="llama-3.1-8b-instant",
-            response_format={"type": "json_object"},
-        )
-        text = chat_completion.choices[0].message.content
+        contents = [prompt]
+        
+        if image_url:
+            try:
+                img_response = requests.get(image_url, timeout=10)
+                if img_response.status_code == 200:
+                    img = PIL.Image.open(io.BytesIO(img_response.content))
+                    contents.insert(0, img)
+            except Exception as img_err:
+                logger.warning(f"Failed to fetch image for Gemini: {img_err}")
+                
+        response = gemini_model.generate_content(contents)
+        text = response.text
         data = json.loads(text)
         _location_cache[cache_key] = data
         return data
@@ -238,9 +242,6 @@ async def upload_to_firestore(events: List[Dict], source: str) -> int:
                 clean_location = ", ".join(loc_parts) if loc_parts else 'Malaysia'
                 
                 lat, lng = geocode_location(clean_location)
-                if not lat or not lng:
-                    lat = ai_data.get('lat')
-                    lng = ai_data.get('lng')
             else:
                 # Fallback if AI fails completely
                 if 'virtual' in event.get('title', '').lower() or 'virtual' in event.get('location', '').lower():
