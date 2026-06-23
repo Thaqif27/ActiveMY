@@ -444,6 +444,7 @@ async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
     total_uploaded = 0
     all_new_events = []
     start_time = datetime.now()
+    import gc
     
     for name, scraper_func in scrapers.items():
         try:
@@ -478,6 +479,8 @@ async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
                 'status': 'error',
                 'error': str(e)
             }
+        finally:
+            gc.collect()
             
     # Write log to Firestore
     if db:
@@ -807,10 +810,14 @@ def check_and_run_scheduled_scrape():
         if now.hour == run_hour:
             # Check if already ran today
             if last_run:
-                from datetime import timezone
+                from datetime import timezone, timedelta
                 if hasattr(last_run, 'tzinfo') and last_run.tzinfo is None:
                     last_run = last_run.replace(tzinfo=timezone.utc)
-                if last_run.date() == now.date():
+                
+                # Convert last_run to Malaysia time before checking the date
+                last_run_my = last_run.astimezone(timezone(timedelta(hours=8)))
+                
+                if last_run_my.date() == now.date():
                     return # Already ran today
                     
             logger.info(f"Auto-scrape triggered for schedule hour {run_hour}")
