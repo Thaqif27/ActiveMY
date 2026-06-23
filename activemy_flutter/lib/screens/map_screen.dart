@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
-
 import '../models/event_model.dart';
 import '../services/firestore_service.dart';
 import '../utils/constants.dart';
@@ -273,7 +273,17 @@ class _MapScreenState extends State<MapScreen> {
   Future<Set<Marker>> _buildMarkers(Map<String, List<EventModel>> locationGroups, Position? currentPos) async {
     Set<Marker> markers = {};
     
-    // Rely natively on myLocationEnabled: true for the blue dot on both web and mobile.
+    // Web has buggy myLocationEnabled, so we add a manual marker just for Web
+    if (kIsWeb && currentPos != null) {
+      markers.add(Marker(
+        markerId: const MarkerId('current_location'),
+        position: LatLng(currentPos.latitude, currentPos.longitude),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        infoWindow: const InfoWindow(title: '📍 You are here'),
+        zIndex: 999, // keep it on top
+      ));
+    }
+
 
     for (var entry in locationGroups.entries) {
       final locKey = entry.key;
