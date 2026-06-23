@@ -225,7 +225,7 @@ class _AdminScraperScreenState extends State<AdminScraperScreen> {
                         columnSpacing: 16,
                         headingRowHeight: 56,
                         dataRowMinHeight: 80,
-                        dataRowMaxHeight: 120,
+                        dataRowMaxHeight: double.infinity,
                         columns: const [
                           DataColumn(label: Text('DATE/TIME')),
                           DataColumn(label: Text('TRIGGER')),

@@ -7,7 +7,7 @@ import os
 import sys
 import logging
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 
@@ -483,7 +483,7 @@ async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
     if db:
         try:
             log_entry = {
-                'timestamp': datetime.now(),
+                'timestamp': datetime.now(timezone.utc),
                 'triggered_by': triggered_by,
                 'status': 'success' if any(r.get('status') == 'success' for r in results.values()) else 'failed',
                 'events_found': total_found,
@@ -834,7 +834,7 @@ def check_and_run_scheduled_scrape():
             
             # Update last_run
             db.collection('scraper_settings').document('settings').set({
-                'last_run': datetime.now(),
+                'last_run': datetime.now(timezone.utc),
                 'status': status
             }, merge=True)
             
