@@ -210,131 +210,164 @@ class _AdminScraperScreenState extends State<AdminScraperScreen> {
               ),
               const Divider(height: 1, color: AppAdminColors.border),
               Expanded(
-                child: SingleChildScrollView(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Theme(
-                      data: ThemeData.dark().copyWith(
-                        dividerColor: AppAdminColors.border,
-                        dataTableTheme: const DataTableThemeData(
-                          headingTextStyle: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 13),
-                          dataTextStyle: TextStyle(color: Colors.white, fontSize: 14),
-                        ),
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(24.0),
+                  itemCount: logs.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final log = logs[index];
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppAdminColors.cardLight,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppAdminColors.border),
                       ),
-                      child: DataTable(
-                        columnSpacing: 16,
-                        headingRowHeight: 56,
-                        dataRowMinHeight: 80,
-                        dataRowMaxHeight: double.infinity,
-                        columns: const [
-                          DataColumn(label: Text('DATE/TIME')),
-                          DataColumn(label: Text('TRIGGER')),
-                          DataColumn(label: Text('STATUS')),
-                          DataColumn(label: Text('SOURCES')),
-                          DataColumn(label: Text('FOUND')),
-                          DataColumn(label: Text('NEW')),
-                          DataColumn(label: Text('DUR (s)')),
-                        ],
-                        rows: logs.map((log) {
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(DateFormat('dd MMM HH:mm').format(log.timestamp))),
-                              DataCell(Text(log.triggeredBy.toUpperCase(), style: const TextStyle(color: Colors.white70, fontSize: 12))),
-                              DataCell(Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: log.status == 'success'
-                                      ? Colors.green.withValues(alpha: 0.2)
-                                      : Colors.red.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  log.status.toUpperCase(),
-                                  style: TextStyle(
-                                    color: log.status == 'success' ? Colors.green : Colors.red,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.access_time, size: 16, color: Colors.white54),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    DateFormat('dd MMM yyyy, HH:mm').format(log.timestamp),
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
-                                ),
-                              )),
-                              DataCell(
-                                SizedBox(
-                                  width: 230,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                    child: Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: log.details.entries.map((e) {
-                                        final source = e.key.toUpperCase();
-                                        final uploaded = e.value['uploaded'] ?? 0;
-                                        final found = e.value['found'] ?? 0;
-                                        final isSuccess = e.value['status'] == 'success';
-                                        
-                                        final hasEvents = found > 0;
-                                        final bgColor = isSuccess && hasEvents
-                                            ? AppAdminColors.primaryNeon.withValues(alpha: 0.1)
-                                            : AppAdminColors.cardLight;
-                                        final textColor = isSuccess && hasEvents
-                                            ? AppAdminColors.primaryNeon
-                                            : Colors.white54;
-
-                                        return Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: bgColor,
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(
-                                              color: isSuccess && hasEvents 
-                                                  ? AppAdminColors.primaryNeon.withValues(alpha: 0.3) 
-                                                  : AppAdminColors.border,
-                                              width: 1,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                source,
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: textColor,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.black26,
-                                                  borderRadius: BorderRadius.circular(4),
-                                                ),
-                                                child: Text(
-                                                  '$uploaded / $found',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    color: textColor,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }).toList(),
+                                  const SizedBox(width: 16),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: log.status == 'success'
+                                          ? Colors.green.withValues(alpha: 0.2)
+                                          : Colors.red.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      log.status.toUpperCase(),
+                                      style: TextStyle(
+                                        color: log.status == 'success' ? Colors.green : Colors.red,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    log.triggeredBy.toUpperCase(),
+                                    style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '${log.durationSeconds.toStringAsFixed(1)}s',
+                                style: const TextStyle(color: Colors.white54, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: log.details.entries.map((e) {
+                                    final source = e.key.toUpperCase();
+                                    final uploaded = e.value['uploaded'] ?? 0;
+                                    final found = e.value['found'] ?? 0;
+                                    final isSuccess = e.value['status'] == 'success';
+                                    
+                                    final hasEvents = found > 0;
+                                    final bgColor = isSuccess && hasEvents
+                                        ? AppAdminColors.primaryNeon.withValues(alpha: 0.1)
+                                        : Colors.black26;
+                                    final textColor = isSuccess && hasEvents
+                                        ? AppAdminColors.primaryNeon
+                                        : Colors.white54;
+
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: bgColor,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: isSuccess && hasEvents 
+                                              ? AppAdminColors.primaryNeon.withValues(alpha: 0.3) 
+                                              : Colors.white12,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            source,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: textColor,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black26,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              '$uploaded / $found',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
                               ),
-                              DataCell(Text(log.eventsFound.toString())),
-                              DataCell(Text(log.eventsUploaded.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataCell(Text(log.durationSeconds.toStringAsFixed(1), style: const TextStyle(color: Colors.white70))),
+                              const SizedBox(width: 16),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.black12,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      'Found: ${log.eventsFound}',
+                                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'New: ${log.eventsUploaded}',
+                                      style: const TextStyle(
+                                        color: AppAdminColors.primaryNeon, 
+                                        fontSize: 14, 
+                                        fontWeight: FontWeight.bold
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
-                          );
-                        }).toList(),
+                          ),
+                        ],
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ],
