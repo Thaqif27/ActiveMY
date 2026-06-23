@@ -243,6 +243,28 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
+  Widget _buildActionBtn({
+    required IconData icon,
+    required Color color,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: color, size: 20),
+        tooltip: tooltip,
+        onPressed: onPressed,
+        hoverColor: color.withValues(alpha: 0.2),
+        splashRadius: 20,
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.read<AuthService>();
@@ -279,12 +301,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             }
 
             final users = usersSnapshot.data ?? [];
-            final usersDataSource = _UsersDataSource(
-              users: users,
-              onView: _viewUserDetails,
-              onEditRole: _changeUserRole,
-              onDelete: _deleteUser,
-            );
 
             return AdminLayout(
               activeRoute: RoutePaths.adminUsers,
@@ -295,59 +311,122 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   if (_updating)
                     const LinearProgressIndicator(color: AppColors.primary, backgroundColor: Colors.transparent),
 
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    child: Text(
+                      'System Users',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
+                    ),
+                  ),
+
                   // Users Table
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppAdminColors.cardDark,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppAdminColors.border, width: 1.0),
-                        ),
-                        child: Theme(
-                          data: ThemeData.dark().copyWith(
-                            cardColor: Colors.transparent,
-                            dividerColor: Colors.transparent,
-                            canvasColor: AppAdminColors.bgDark,
-                            colorScheme: const ColorScheme.dark().copyWith(
-                              outlineVariant: Colors.transparent,
-                            ),
-                            dataTableTheme: const DataTableThemeData(
-                              dividerThickness: 0.0001,
-                              headingRowColor: WidgetStatePropertyAll(Colors.transparent),
-                              dataRowMaxHeight: 70,
-                              headingTextStyle: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white70,
-                                fontSize: 13,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(24.0),
+                      itemCount: users.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 16),
+                      itemBuilder: (context, index) {
+                        final user = users[index];
+                        final isUserAdmin = user.role == 'admin';
+                        
+                        return Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: AppAdminColors.cardDark,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppAdminColors.border),
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: PaginatedDataTable(
-                              header: const Text(
-                                'System Users',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
+                          child: Row(
+                            children: [
+                              // Avatar
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor: isUserAdmin ? Colors.purpleAccent.withValues(alpha: 0.2) : Colors.blueAccent.withValues(alpha: 0.2),
+                                child: Text(
+                                  user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : 'U',
+                                  style: TextStyle(
+                                    fontSize: 20, 
+                                    fontWeight: FontWeight.bold, 
+                                    color: isUserAdmin ? Colors.purpleAccent : Colors.blueAccent
+                                  ),
+                                ),
                               ),
-                              columns: const [
-                                DataColumn(label: Text('NO')),
-                                DataColumn(label: Text('DISPLAY NAME')),
-                                DataColumn(label: Text('EMAIL ADDRESS')),
-                                DataColumn(label: Text('ROLE', style: TextStyle(color: Colors.white70))),
-                                DataColumn(label: Text('ACTIONS', style: TextStyle(color: Colors.white70))),
-                              ],
-                              source: usersDataSource,
-                              rowsPerPage: 10,
-                              columnSpacing: 20,
-                              horizontalMargin: 16,
-                              showFirstLastButtons: true,
-                            ),
+                              const SizedBox(width: 20),
+                              
+                              // User Info
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      user.displayName.isNotEmpty ? user.displayName : 'ActiveUser',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      user.email,
+                                      style: const TextStyle(color: Colors.white54, fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              
+                              // Role Badge
+                              Expanded(
+                                flex: 1,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: isUserAdmin ? Colors.purpleAccent.withValues(alpha: 0.15) : Colors.blueAccent.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(50),
+                                      border: Border.all(color: isUserAdmin ? Colors.purpleAccent.withValues(alpha: 0.3) : Colors.blueAccent.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Text(
+                                      user.role.toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: isUserAdmin ? Colors.purpleAccent : Colors.blueAccent,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              
+                              // Actions
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildActionBtn(
+                                    icon: Icons.visibility_outlined,
+                                    color: Colors.greenAccent,
+                                    tooltip: 'View Details',
+                                    onPressed: () => _viewUserDetails(user),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildActionBtn(
+                                    icon: Icons.edit_outlined,
+                                    color: Colors.blueAccent,
+                                    tooltip: 'Edit Role',
+                                    onPressed: () => _changeUserRole(user),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildActionBtn(
+                                    icon: Icons.delete_outline,
+                                    color: Colors.redAccent,
+                                    tooltip: 'Delete User',
+                                    onPressed: () => _deleteUser(user),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -394,130 +473,4 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       ),
     );
   }
-}
-
-class _UsersDataSource extends DataTableSource {
-  final List<UserModel> users;
-  final Function(UserModel user) onView;
-  final Function(UserModel user) onEditRole;
-  final Function(UserModel user) onDelete;
-
-  _UsersDataSource({
-    required this.users,
-    required this.onView,
-    required this.onEditRole,
-    required this.onDelete,
-  });
-
-  @override
-  DataRow? getRow(int index) {
-    if (index >= users.length) return null;
-    final user = users[index];
-    final isEven = index % 2 == 0;
-    
-    final isUserAdmin = user.role == 'admin';
-
-    return DataRow(
-      color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
-        if (states.contains(WidgetState.hovered)) {
-          return Colors.white.withValues(alpha: 0.1);
-        }
-        if (isEven) {
-          return Colors.white.withValues(alpha: 0.02);
-        }
-        return Colors.transparent;
-      }),
-      cells: [
-        DataCell(
-          Text('${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white70)),
-        ),
-        DataCell(
-          Text(
-            user.displayName.isNotEmpty ? user.displayName : 'ActiveUser',
-            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
-          ),
-        ),
-        DataCell(
-          Text(user.email, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w500)),
-        ),
-        DataCell(
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: isUserAdmin ? Colors.purpleAccent.withValues(alpha: 0.15) : Colors.blueAccent.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(50),
-              border: Border.all(color: isUserAdmin ? Colors.purpleAccent.withValues(alpha: 0.3) : Colors.blueAccent.withValues(alpha: 0.3)),
-            ),
-            child: Text(
-              user.role.toUpperCase(),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: isUserAdmin ? Colors.purpleAccent : Colors.blueAccent,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-        ),
-        DataCell(
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildActionBtn(
-                icon: Icons.visibility_outlined,
-                color: Colors.greenAccent,
-                tooltip: 'View Details',
-                onPressed: () => onView(user),
-              ),
-              const SizedBox(width: 8),
-              _buildActionBtn(
-                icon: Icons.edit_outlined,
-                color: Colors.blueAccent,
-                tooltip: 'Edit Role',
-                onPressed: () => onEditRole(user),
-              ),
-              const SizedBox(width: 8),
-              _buildActionBtn(
-                icon: Icons.delete_outline,
-                color: Colors.redAccent,
-                tooltip: 'Delete User',
-                onPressed: () => onDelete(user),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionBtn({
-    required IconData icon,
-    required Color color,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: IconButton(
-        icon: Icon(icon, color: color, size: 20),
-        tooltip: tooltip,
-        onPressed: onPressed,
-        hoverColor: color.withValues(alpha: 0.2),
-        splashRadius: 20,
-        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-      ),
-    );
-  }
-
-  @override
-  bool get isRowCountApproximate => false;
-
-  @override
-  int get rowCount => users.length;
-
-  @override
-  int get selectedRowCount => 0;
 }
