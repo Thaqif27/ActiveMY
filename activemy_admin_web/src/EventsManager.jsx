@@ -9,6 +9,7 @@ export default function EventsManager() {
   
   const [selectedCat, setSelectedCat] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const categories = ['All', 'Running', 'Cycling', 'Hiking', 'Triathlon', 'Virtual'];
   const statuses = ['All', 'Active', 'Past'];
@@ -24,8 +25,8 @@ export default function EventsManager() {
   async function fetchEvents() {
     setLoading(true);
     try {
-      // Fetch up to 200 events for management
-      const q = query(collection(db, 'events'), limit(200));
+      // Fetch up to 1000 events for management
+      const q = query(collection(db, 'events'), limit(1000));
       const snapshot = await getDocs(q);
       const fetchedEvents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
@@ -79,7 +80,10 @@ export default function EventsManager() {
     }
     
     const matchesStatus = selectedStatus === 'All' || stat.toLowerCase() === selectedStatus.toLowerCase();
-    return matchesCat && matchesStatus;
+    
+    const matchesSearch = searchQuery === '' || (e.title || '').toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return matchesCat && matchesStatus && matchesSearch;
   });
 
   const FilterButton = ({ label, selected, onClick, isBlue }) => (
@@ -102,7 +106,17 @@ export default function EventsManager() {
     <div className="bg-slate-50 min-h-[calc(100vh-4rem)] p-2 text-slate-900">
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-slate-800 mb-2">Manage Aggregated Events</h2>
-        <p className="text-slate-500">Welcome back, manage your system here.</p>
+        <p className="text-slate-500">Welcome back, manage your system here. Events are sorted by their event date.</p>
+      </div>
+
+      <div className="mb-6">
+        <input 
+          type="text" 
+          placeholder="Search events by title..." 
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full md:w-1/2 px-4 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
       </div>
 
       <div className="space-y-4 mb-8">

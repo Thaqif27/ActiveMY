@@ -90,13 +90,31 @@ class MalaysiaCyclistScraper:
                     # Check if virtual
                     is_virtual = 'virtual' in title.lower() or 'virtual' in raw_category.lower() or 'virtual' in description.lower()
                     
+                    # Fetch individual event page for image and full description
+                    image_url = ''
+                    try:
+                        detail_resp = self.session.get(event_url, timeout=10)
+                        detail_resp.raise_for_status()
+                        detail_soup = BeautifulSoup(detail_resp.text, 'html.parser')
+                        
+                        img_elem = detail_soup.find('img')
+                        if img_elem and img_elem.get('src'):
+                            img_src = img_elem.get('src')
+                            if not img_src.startswith('http'):
+                                image_url = self.base_url + img_src
+                            else:
+                                image_url = img_src
+                                
+                    except Exception as e:
+                        logger.debug(f"MalaysiaCyclist: Failed to fetch details for {title}: {e}")
+                    
                     events.append({
                         'title': title,
                         'date': event_date.isoformat(),
                         'location': location,
                         'category': category,
                         'url': event_url,
-                        'image_url': '',  # No image on the main list
+                        'image_url': image_url,
                         'description': description,
                         'is_virtual': is_virtual
                     })

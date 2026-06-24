@@ -97,6 +97,7 @@ class EventModel {
 
   static String _processImageUrl(String url) {
     if (url.isEmpty) return url;
+    if (url.startsWith('data:image')) return '';
     if (kIsWeb && url.startsWith('http')) {
       // Use our local backend proxy to bypass CanvasKit CORS errors
       return '${AppConstants.scraperUrl}/proxy-image?url=${Uri.encodeComponent(url)}';

@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 # ============ FIREBASE INITIALIZATION ============
 import firebase_admin
-from firebase_admin import credentials, firestore, messaging
+from firebase_admin import credentials, firestore, messaging, storage
 
 try:
     if not firebase_admin._apps:
@@ -54,7 +54,9 @@ try:
             cred_path = os.getenv('FIREBASE_CREDENTIALS_PATH', 'activemy-a6bf1-firebase-adminsdk.json')
             cred = credentials.Certificate(cred_path)
             
-        firebase_admin.initialize_app(cred)
+        firebase_admin.initialize_app(cred, {
+            'storageBucket': 'activemy-a6bf1.firebasestorage.app'
+        })
         logger.info("Firebase initialized successfully")
     db = firestore.client()
 except Exception as e:
@@ -218,6 +220,25 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
     if not events or not db:
         return 0, []
         
+    def upload_base64_image(b64_str: str) -> str:
+        import base64
+        import uuid
+        try:
+            if ',' not in b64_str:
+                return ""
+            header, encoded = b64_str.split(",", 1)
+            mime_type = header.split(";")[0].replace("data:", "")
+            ext = mime_type.split("/")[1] if "/" in mime_type else "jpg"
+            
+            bucket = storage.bucket()
+            blob = bucket.blob(f"scraped_images/{uuid.uuid4()}.{ext}")
+            blob.upload_from_string(base64.b64decode(encoded), content_type=mime_type)
+            blob.make_public()
+            return blob.public_url
+        except Exception as e:
+            logger.error(f"Failed to upload base64 image: {e}")
+            return ""
+    
     uploaded = 0
     newly_uploaded_events = []
     
@@ -312,6 +333,10 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
                 doc = existing[0]
                 doc_data = doc.to_dict()
                 updates = {}
+                
+                if event.get('image_url', '').startswith('data:image'):
+                    event['image_url'] = upload_base64_image(event['image_url'])
+                    
                 # Update image_url if it is different (handles expiring S3 URLs or missing images)
                 if event.get('image_url') and doc_data.get('image_url') != event.get('image_url'):
                     updates['image_url'] = event['image_url']
@@ -356,10 +381,10 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
                     'geopoint': firestore.GeoPoint(lat, lng)
                 },
                 'source': source,
-                'original_url': event.get('original_url', ''),
-                'image_url': event.get('image_url', ''),
+                'original_url': event.get('original_url', event.get('url', '')),
+                'image_url': upload_base64_image(event['image_url']) if event.get('image_url', '').startswith('data:image') else event.get('image_url', ''),
                 'price': event.get('price', 'Free'),
-                'scraped_at': datetime.now(),
+                'scraped_at': datetime.now(timezone.utc),
                 'is_active': True,
                 'is_virtual': is_virtual,
                 'ai_processed': ai_processed

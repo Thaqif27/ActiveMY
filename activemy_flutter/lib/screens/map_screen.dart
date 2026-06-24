@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/event_model.dart';
 import '../services/firestore_service.dart';
 import '../utils/constants.dart';
@@ -18,14 +19,39 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  double _radiusKm = double.infinity;
+  GoogleMapController? _mapController;
+  Position? _currentPosition;
   late Future<Position?> _locationFuture;
-  double _radiusKm = AppConstants.defaultRadiusKm;
   String _selectedCategory = 'All';
+  bool _isInit = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInit) {
+      _isInit = true;
+      final firestore = context.read<FirestoreService>();
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        firestore.streamUser(user.uid).first.then((userModel) {
+          if (mounted && userModel != null) {
+            setState(() {
+              _radiusKm = userModel.preferredRadiusKm;
+            });
+          }
+        });
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _locationFuture = _resolveLocation();
+    _locationFuture = _resolveLocation().then((pos) {
+      _currentPosition = pos;
+      return pos;
+    });
   }
 
   Future<Position?> _resolveLocation() async {
@@ -89,9 +115,11 @@ class _MapScreenState extends State<MapScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
+                        final newRadius = options[sliderValue.toInt()];
                         setState(() {
-                          _radiusKm = options[sliderValue.toInt()];
+                          _radiusKm = newRadius;
                         });
+                        _updateCameraZoom(newRadius);
                         Navigator.pop(context);
                       },
                       child: const Text('Apply Radius'),
@@ -103,6 +131,29 @@ class _MapScreenState extends State<MapScreen> {
           },
         );
       },
+    );
+  }
+
+  double _getZoomForRadius(double radiusKm) {
+    if (radiusKm == double.infinity) return 6.0;
+    if (radiusKm <= 10) return 12.0;
+    if (radiusKm <= 25) return 10.5;
+    if (radiusKm <= 50) return 9.5;
+    return 8.5; // 100km
+  }
+
+  void _updateCameraZoom(double radiusKm) {
+    if (_mapController == null || _currentPosition == null) return;
+    
+    double targetZoom = _getZoomForRadius(radiusKm);
+
+    _mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          zoom: targetZoom,
+        ),
+      ),
     );
   }
 
@@ -445,12 +496,13 @@ class _MapScreenState extends State<MapScreen> {
                   return Stack(
                     children: [
                       GoogleMap(
+                        onMapCreated: (controller) => _mapController = controller,
                         myLocationEnabled: true,
                         myLocationButtonEnabled: true,
                         zoomControlsEnabled: false,
                         initialCameraPosition: CameraPosition(
                           target: LatLng(position.latitude, position.longitude),
-                          zoom: 11,
+                          zoom: _getZoomForRadius(_radiusKm),
                         ),
                         markers: markers,
                       ),

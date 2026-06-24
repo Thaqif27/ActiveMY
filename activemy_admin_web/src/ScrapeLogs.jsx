@@ -75,12 +75,18 @@ export default function ScrapeLogs() {
         ? `http://localhost:8000/scrape/${source}`
         : `https://goldfish-app-n6w8a.ondigitalocean.app/scrape/${source}`;
         
-      fetch(apiUrl, { method: 'POST' }).catch(e => console.error("API error", e));
+      const response = await fetch(apiUrl, { method: 'POST' });
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
       
       alert(`${source.toUpperCase()} scraper triggered! Check logs soon.`);
     } catch (e) {
       console.error(e);
-      alert(`Failed to trigger ${source}`);
+      alert(`Failed to trigger ${source}. The server might still be deploying. Wait a few minutes.`);
+      
+      // Revert optimistic update
+      await setDoc(doc(db, 'settings', `scraper_${source}`), { status: 'idle' }, { merge: true });
     }
   };
 

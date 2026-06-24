@@ -46,7 +46,9 @@ class SoHikersScraper:
                         {"fieldPath": "deleted"},
                         {"fieldPath": "archived"},
                         {"fieldPath": "closed"},
-                        {"fieldPath": "draft"}
+                        {"fieldPath": "draft"},
+                        {"fieldPath": "posterB64"},
+                        {"fieldPath": "cardThumbB64"}
                     ]
                 },
                 "orderBy": [{"field": {"fieldPath": "tripDate"}, "direction": "ASCENDING"}],
@@ -100,13 +102,22 @@ class SoHikersScraper:
                 
                 category = "hiking" # Hardcode to hiking for SoHikers
                 
+                # Handle base64 image
+                image_b64 = raw_data.get('posterB64') or raw_data.get('cardThumbB64') or ''
+                image_url = ''
+                if image_b64:
+                    if image_b64.startswith('data:image'):
+                        image_url = image_b64
+                    else:
+                        image_url = f"data:image/jpeg;base64,{image_b64}"
+                
                 events.append({
                     'title': title,
                     'date': event_date.isoformat(),
                     'location': location,
                     'category': category,
                     'url': url_event,
-                    'image_url': '',
+                    'image_url': image_url,
                     'description': description,
                     'is_virtual': False
                 })
