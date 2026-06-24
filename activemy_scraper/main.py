@@ -116,7 +116,7 @@ def process_event_with_ai_json(event_data: Dict) -> Dict:
     Description: {desc[:500]}
     
     Tasks:
-    1. Identify the EXACT physical venue name from the poster image (e.g., "Penang Waterfront Convention Centre", "Dataran Merdeka"). If the event is fully virtual with no physical location, set the venue to "VIRTUAL". If it's a HYBRID event, return the actual physical venue and set is_virtual to true.
+    1. Identify the EXACT physical venue name from the poster image (e.g., "Penang Waterfront Convention Centre", "Dataran Merdeka"). NEVER use generic section headers like "About", "Overview", "Venue", "Location" as the venue name. If the venue is unknown, return "null". If the event is fully virtual with no physical location, set the venue to "VIRTUAL". If it's a HYBRID event, return the actual physical venue and set is_virtual to true.
     2. Determine the City and State in Malaysia.
     3. Determine if the event is hosted inside Malaysia. If it is clearly hosted in another country, set is_malaysia to false.
     4. Refine the category to STRICTLY one of these: ["running", "cycling", "hiking", "triathlon", "adventure"]. If unsure, default to "running".
@@ -255,7 +255,16 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
                     
                 city = ai_data.get('city', '')
                 state = ai_data.get('state', '')
-                loc_parts = [p for p in [venue, city, state] if p and p != 'null' and p != 'None']
+                
+                def is_valid_loc(p):
+                    pl = str(p).lower().strip()
+                    if not pl: return False
+                    if pl == 'about' or pl == 'venue' or pl == 'location': return False
+                    for bad in ['not_provided', 'null', 'none', 'n/a', 'not provided', 'not available', 'unspecified', 'unknown']:
+                        if bad in pl: return False
+                    return True
+                    
+                loc_parts = [str(p).strip() for p in [venue, city, state] if is_valid_loc(p)]
                 clean_location = ", ".join(loc_parts) if loc_parts else 'Malaysia'
                 
                 lat, lng = geocode_location(clean_location)
@@ -518,18 +527,119 @@ async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
                 'events_found': total_found,
                 'events_uploaded': total_uploaded,
                 'duration_seconds': (datetime.now() - start_time).total_seconds(),
-                'details': results
+                'details': results,
+                'target': 'all'
             }
             db.collection('scraper_logs').add(log_entry)
+            
+            # Update legacy setting doc if it exists just in case
             db.collection('settings').document('scraper_settings').set({
                 'last_run': log_entry['timestamp'],
                 'status': log_entry['status']
             }, merge=True)
-            logger.info(f"Logged scrape run to Firestore and updated settings: {triggered_by}")
+            logger.info(f"Logged scrape run to Firestore: {triggered_by}")
         except Exception as e:
             logger.error(f"Failed to write log to Firestore: {e}")
             
     # Trigger Nearby Radar and AI Recommendations if new events were uploaded
+    if total_uploaded > 0:
+        logger.info(f"Triggering Nearby Radar and AI Recommendations for {total_uploaded} new events...")
+        import threading
+        from recommendation_engine import send_nearby_alerts, recommend_for_all_users
+        
+        def run_notification_engines():
+            send_nearby_alerts(all_new_events)
+            recommend_for_all_users()
+            
+        threading.Thread(target=run_notification_engines).start()
+            
+    return results
+
+async def run_single_scraper(source: str, triggered_by: str = "manual") -> Dict[str, Dict]:
+    """Run a single scraper and collect results"""
+    results = {}
+    
+    scrapers = {
+        'jomrun': run_jomrun,
+        'racexasia': run_racexasia,
+        'ticket2u': run_ticket2u,
+        'malaysiarunner': run_malaysiarunner,
+        'malaysiacyclist': run_malaysiacyclist,
+        'sohikers': run_sohikers,
+    }
+    
+    if source not in scrapers:
+        raise ValueError(f"Scraper '{source}' not found")
+        
+    scraper_func = scrapers[source]
+    
+    total_found = 0
+    total_uploaded = 0
+    all_new_events = []
+    start_time = datetime.now()
+    import gc
+    
+    try:
+        logger.info(f"Running {source} scraper...")
+        events = scraper_func()
+        
+        if events:
+            unique_events = deduplicate_events(events)
+            uploaded, new_events_list = await upload_to_firestore(unique_events, source)
+            results[source] = {
+                'found': len(unique_events),
+                'uploaded': uploaded,
+                'status': 'success'
+            }
+            total_found += len(unique_events)
+            total_uploaded += uploaded
+            all_new_events.extend(new_events_list)
+            logger.info(f"OK {source}: Found {len(unique_events)}, Uploaded {uploaded}")
+        else:
+            results[source] = {
+                'found': 0,
+                'uploaded': 0,
+                'status': 'no_events'
+            }
+            logger.warning(f"WARN {source}: No events found")
+            
+    except Exception as e:
+        logger.error(f"FAIL {source} failed: {e}")
+        results[source] = {
+            'found': 0,
+            'uploaded': 0,
+            'status': 'error',
+            'error': str(e)
+        }
+    finally:
+        gc.collect()
+        
+    # Write log to Firestore
+    if db:
+        try:
+            status = results[source].get('status', 'failed')
+            log_entry = {
+                'timestamp': datetime.now(timezone.utc),
+                'triggered_by': triggered_by,
+                'status': 'success' if status in ['success', 'no_events'] else 'failed',
+                'events_found': total_found,
+                'events_uploaded': total_uploaded,
+                'duration_seconds': (datetime.now() - start_time).total_seconds(),
+                'details': results,
+                'target': source
+            }
+            db.collection('scraper_logs').add(log_entry)
+            
+            # Update specific scraper setting doc
+            db.collection('settings').document(f"scraper_{source}").set({
+                'last_run': log_entry['timestamp'],
+                'status': 'idle'
+            }, merge=True)
+            logger.info(f"Logged single scrape run to Firestore: {triggered_by}")
+        except Exception as e:
+            logger.error(f"Failed to write log to Firestore: {e}")
+            
+    # Trigger Nearby Radar and AI Recommendations
     if total_uploaded > 0:
         logger.info(f"Triggering Nearby Radar and AI Recommendations for {total_uploaded} new events...")
         import threading
@@ -651,37 +761,20 @@ async def recommend_all():
     return result
 
 @app.post("/scrape/{source}")
-async def scrape_single(source: str):
-    """Run a single scraper"""
-    scrapers = {
-        "jomrun": run_jomrun,
-        "racexasia": run_racexasia,
-        "ticket2u": run_ticket2u,
-        "malaysiarunner": run_malaysiarunner,
-    }
+async def scrape_single_api(source: str):
+    """Run a single scraper manually"""
+    scrapers_list = ['jomrun', 'racexasia', 'ticket2u', 'malaysiarunner', 'malaysiacyclist', 'sohikers']
+    if source not in scrapers_list:
+        raise HTTPException(404, detail=f"Scraper '{source}' not found. Available: {scrapers_list}")
     
-    if source not in scrapers:
-        raise HTTPException(404, detail=f"Scraper '{source}' not found. Available: {list(scrapers.keys())}")
+    logger.info(f"Manual scrape triggered via API - running {source}")
     
-    logger.info(f"Manual scrape triggered - running {source}")
-    events = scrapers[source]()
-    
-    if events:
-        unique_events = deduplicate_events(events)
-        uploaded, new_events_list = await upload_to_firestore(unique_events, source)
-        return {
-            "source": source,
-            "found": len(unique_events),
-            "uploaded": uploaded,
-            "status": "success"
-        }
-    
-    return {
-        "source": source,
-        "found": 0,
-        "uploaded": 0,
-        "status": "no_events"
-    }
+    # Mark as running
+    if db:
+        db.collection('settings').document(f"scraper_{source}").set({'status': 'running'}, merge=True)
+        
+    results = await run_single_scraper(source, triggered_by="manual_admin")
+    return results
 
 @app.get("/events")
 async def get_events(limit: int = 100, category: str = None):
@@ -805,72 +898,60 @@ def deactivate_past_events():
         return 0
 
 def check_and_run_scheduled_scrape():
-    """Polls Firestore every 5 minutes to see if auto-scrape should run."""
+    """Polls Firestore every 5 minutes to see if auto-scrape should run for individual scrapers."""
     if not db:
         return
         
     try:
-        settings_doc = db.collection('settings').document('scraper_settings').get()
-        if not settings_doc.exists:
-            # Create default settings
-            db.collection('settings').document('scraper_settings').set({
-                'enabled': True,
-                'run_hour': 2,
-                'last_run': None,
-                'status': 'idle'
-            })
-            return
-            
-        data = settings_doc.to_dict()
-        enabled = data.get('enabled', True)
-        run_hour = data.get('run_hour', 2)
-        last_run = data.get('last_run')
-        
-        if not enabled:
-            return
-            
         from datetime import timezone, timedelta
+        import asyncio
+        
+        sources = ['jomrun', 'racexasia', 'ticket2u', 'malaysiarunner', 'malaysiacyclist', 'sohikers']
+        
         now = datetime.now(timezone(timedelta(hours=8)))
         
-        # Check if we reached the run_hour today
-        if now.hour == run_hour:
-            # Check if already ran today
-            if last_run:
-                from datetime import timezone, timedelta
-                if hasattr(last_run, 'tzinfo') and last_run.tzinfo is None:
-                    last_run = last_run.replace(tzinfo=timezone.utc)
+        for source in sources:
+            settings_doc = db.collection('settings').document(f"scraper_{source}").get()
+            if not settings_doc.exists:
+                db.collection('settings').document(f"scraper_{source}").set({
+                    'enabled': False,
+                    'run_hour': 2,
+                    'last_run': None,
+                    'status': 'idle'
+                })
+                continue
                 
-                # Convert last_run to Malaysia time before checking the date
-                last_run_my = last_run.astimezone(timezone(timedelta(hours=8)))
+            data = settings_doc.to_dict()
+            enabled = data.get('enabled', False)
+            run_hour = data.get('run_hour', 2)
+            last_run = data.get('last_run')
+            
+            if not enabled:
+                continue
                 
-                if last_run_my.date() == now.date():
-                    return # Already ran today
+            if now.hour == run_hour:
+                # Check if already ran today
+                if last_run:
+                    if hasattr(last_run, 'tzinfo') and last_run.tzinfo is None:
+                        last_run = last_run.replace(tzinfo=timezone.utc)
                     
-            logger.info(f"Auto-scrape triggered for schedule hour {run_hour}")
-            
-            # Update status to running
-            db.collection('settings').document('scraper_settings').set({
-                'status': 'running'
-            }, merge=True)
-            
-            # Run the scraper
-            import asyncio
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(run_all_scrapers(triggered_by="auto"))
-                loop.close()
-                status = 'success'
-            except Exception as e:
-                logger.error(f"Auto-scrape failed: {e}")
-                status = 'error'
-            
-            # Update last_run
-            db.collection('settings').document('scraper_settings').set({
-                'last_run': datetime.now(timezone.utc),
-                'status': status
-            }, merge=True)
-            
+                    last_run_my = last_run.astimezone(timezone(timedelta(hours=8)))
+                    if last_run_my.date() == now.date():
+                        continue # Already ran today
+                        
+                logger.info(f"Auto-scrape triggered for {source} at hour {run_hour}")
+                
+                db.collection('settings').document(f"scraper_{source}").set({'status': 'running'}, merge=True)
+                
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(run_single_scraper(source, triggered_by="auto"))
+                    loop.close()
+                except Exception as e:
+                    logger.error(f"Auto-scrape failed for {source}: {e}")
+                    db.collection('settings').document(f"scraper_{source}").set({'status': 'error'}, merge=True)
+                    
     except Exception as e:
         logger.error(f"Error checking schedule: {e}")
 
