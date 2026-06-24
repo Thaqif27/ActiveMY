@@ -9,7 +9,7 @@ class AppConstants {
   // Inject with --dart-define=GOOGLE_MAPS_API_KEY=...
   static const String googleMapsApiKey = String.fromEnvironment('GOOGLE_MAPS_API_KEY');
   // Inject with --dart-define=GROQ_API_KEY=...
-  static const String groqApiKey = String.fromEnvironment('GROQ_API_KEY');
+  static const String groqApiKey = '';
   static const String scraperUrl = 'https://goldfish-app-n6w8a.ondigitalocean.app';
 }
 

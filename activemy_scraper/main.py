@@ -61,12 +61,14 @@ except Exception as e:
     logger.error(f"Firebase initialization failed: {e}")
     db = None
 
-# ============ SCRAPER IMPORTS (4 working scrapers) ============
+# ============ SCRAPER IMPORTS (6 working scrapers) ============
 try:
     from scrapers.jomrun_scraper import JomRunScraper
     from scrapers.racexasia_scraper import RaceXasiaScraper
     from scrapers.ticket2u_scraper import Ticket2UScraper
     from scrapers.malaysiarunner_scraper import MalaysiaRunnerScraper
+    from scrapers.malaysiacyclist_scraper import MalaysiaCyclistScraper
+    from scrapers.sohikers_scraper import SoHikersScraper
     logger.info("Imported scrapers from scrapers/ folder")
 except ImportError as e:
     logger.error(f"Failed to import scrapers: {e}")
@@ -74,6 +76,8 @@ except ImportError as e:
     from scrapers.racexasia_scraper import RaceXasiaScraper
     from scrapers.ticket2u_scraper import Ticket2UScraper
     from scrapers.malaysiarunner_scraper import MalaysiaRunnerScraper
+    from scrapers.malaysiacyclist_scraper import MalaysiaCyclistScraper
+    from scrapers.sohikers_scraper import SoHikersScraper
     logger.info("Imported scrapers from current directory")
 
 # ============ HELPER FUNCTIONS ============
@@ -417,6 +421,26 @@ def run_malaysiarunner() -> List[Dict]:
         logger.error(f"Malaysia Runner failed: {e}")
         return []
 
+def run_malaysiacyclist() -> List[Dict]:
+    """Run MalaysiaCyclist scraper"""
+    try:
+        from scrapers.malaysiacyclist_scraper import MalaysiaCyclistScraper
+        scraper = MalaysiaCyclistScraper()
+        return scraper.scrape()
+    except Exception as e:
+        logger.error(f"MalaysiaCyclist failed: {e}")
+        return []
+
+def run_sohikers() -> List[Dict]:
+    """Run SoHikers scraper"""
+    try:
+        from scrapers.sohikers_scraper import SoHikersScraper
+        scraper = SoHikersScraper()
+        return scraper.scrape()
+    except Exception as e:
+        logger.error(f"SoHikers failed: {e}")
+        return []
+
 def run_howei() -> List[Dict]:
     """Run Howei scraper - DEPRECATED"""
     logger.warning("Howei scraper deprecated")
@@ -430,7 +454,7 @@ def run_runningmalaysia() -> List[Dict]:
 # ============ MAIN SCRAPE FUNCTION ============
 
 async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
-    """Run all 4 scrapers and collect results"""
+    """Run all 6 scrapers and collect results"""
     results = {}
     
     scrapers = {
@@ -438,6 +462,8 @@ async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
         'racexasia': run_racexasia,
         'ticket2u': run_ticket2u,
         'malaysiarunner': run_malaysiarunner,
+        'malaysiacyclist': run_malaysiacyclist,
+        'sohikers': run_sohikers,
     }
     
     total_found = 0
@@ -890,7 +916,7 @@ async def manual_run():
     print("ACTIVE MY - SCRAPER MANUAL RUN")
     print("=" * 70)
     print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Scrapers: JomRun, RaceXasia, Ticket2U, Malaysia Runner")
+    print(f"Scrapers: JomRun, RaceXasia, Ticket2U, Malaysia Runner, MalaysiaCyclist, SoHikers")
     print("=" * 70 + "\n")
     
     results = await run_all_scrapers(triggered_by="manual_cli")

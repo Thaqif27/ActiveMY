@@ -128,38 +128,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           return bT.compareTo(aT);
         });
 
-      final viewedIds = docs
+      final viewedCategories = docs
           .where((d) =>
               d.data()['action'] == 'view' || d.data()['action'] == 'click_url')
-          .map((d) => d.data()['event_id'] as String? ?? '')
-          .where((id) => id.isNotEmpty)
-          .toSet()
+          .map((d) => d.data()['category'] as String? ?? '')
+          .where((c) => c.isNotEmpty)
           .toList();
 
-      final savedIds = docs
+      final savedCategories = docs
           .where((d) => d.data()['action'] == 'save')
-          .map((d) => d.data()['event_id'] as String? ?? '')
-          .where((id) => id.isNotEmpty)
-          .toSet()
+          .map((d) => d.data()['category'] as String? ?? '')
+          .where((c) => c.isNotEmpty)
           .toList();
 
       final upcomingEvents = await firestore.streamUpcomingEvents().first;
       if (upcomingEvents.isEmpty) return [];
 
       final recService = RecommendationService();
-      final recommendedIds = await recService.getRecommendedEventIds(
-        userViewedEvents: viewedIds,
-        userSavedEvents: savedIds,
+      final recommendedIds = recService.getRecommendedEventIds(
+        userViewedCategories: viewedCategories,
+        userSavedCategories: savedCategories,
         userCategories: userCategories,
-        availableEvents: upcomingEvents.map((e) => {
-          'id': e.id,
-          'title': e.title,
-          'category': e.category
-        }).toList(),
+        availableEvents: upcomingEvents,
       );
 
-      return upcomingEvents
-          .where((e) => recommendedIds.contains(e.id))
+      // Return events in the exact order recommended by the service
+      return recommendedIds
+          .map((id) => upcomingEvents.firstWhere((e) => e.id == id))
           .toList();
     } catch (e) {
       debugPrint('Recommendations error: $e');

@@ -1,109 +1,81 @@
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../utils/constants.dart';
+import '../models/event_model.dart';
 
 class RecommendationService {
-  static const String _apiKey = AppConstants.groqApiKey;
-  static const String _baseUrl = 'https://api.groq.com/openai/v1/chat/completions';
-
-  Future<List<String>> getRecommendedEventIds({
-    required List<String> userViewedEvents,
-    required List<String> userSavedEvents,
+  /// Returns a sorted list of the top 5 recommended Event IDs based on a rule-based scoring system.
+  List<String> getRecommendedEventIds({
+    required List<String> userViewedCategories,
+    required List<String> userSavedCategories,
     required List<String> userCategories,
-    required List<Map<String, String>> availableEvents,
-  }) async {
-    final availableEventIds = availableEvents.map((e) => e['id']!).toList();
-    if (_apiKey.isEmpty || availableEventIds.isEmpty) {
-      return availableEventIds.take(5).toList();
-    }
-
-    try {
-      final prompt = _buildPrompt(
-        viewedEvents: userViewedEvents,
-        savedEvents: userSavedEvents,
-        categories: userCategories,
-        availableEvents: availableEvents,
-      );
-
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
-        },
-        body: jsonEncode({
-          'model': 'llama-3.1-8b-instant',
-          'messages': [
-            {
-              'role': 'user',
-              'content': prompt,
-            }
-          ],
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final content = data['choices'][0]['message']['content'] as String;
-        return _parseRecommendations(content, availableEventIds);
-      } else {
-        return availableEventIds.take(5).toList();
-      }
-    } catch (e) {
-      return availableEventIds.take(5).toList();
-    }
-  }
-
-  String _buildPrompt({
-    required List<String> viewedEvents,
-    required List<String> savedEvents,
-    required List<String> categories,
-    required List<Map<String, String>> availableEvents,
+    required List<EventModel> availableEvents,
   }) {
-    final availableEventsString = availableEvents.map((e) => '- ID: ${e['id']} | Category: ${e['category']} | Title: ${e['title']}').join('\n');
-    
-    return '''You are a sports event recommendation engine. Based on the user's activity and preferences, recommend the best events for them.
-
-User Information:
-- Preferred categories: $categories
-- Events viewed (IDs): ${viewedEvents.isEmpty ? 'None' : viewedEvents.join(', ')}
-- Events saved (IDs): ${savedEvents.isEmpty ? 'None' : savedEvents.join(', ')}
-
-Available events to choose from:
-$availableEventsString
-
-Please recommend the top 5 most relevant event IDs from the available list. Consider:
-1. Match with user's preferred categories
-2. Similar to events they've viewed/saved
-3. Variety in event types
-
-Return ONLY the 5 event IDs as a comma-separated list, nothing else. Do not include any explanation or intro text.
-Example format: event_id_1,event_id_2,event_id_3,event_id_4,event_id_5''';
-  }
-
-  List<String> _parseRecommendations(String response, List<String> availableIds) {
-    try {
-      // Remove any hallucinated intro texts
-      var cleanResponse = response.replaceAll(RegExp(r'```[a-zA-Z]*'), '').replaceAll('`', '').trim();
-      final recommended = cleanResponse
-          .split(RegExp(r'[,\n]'))
-          .map((id) => id.trim())
-          .where((id) => availableIds.contains(id))
-          .take(5)
-          .toList();
-
-      if (recommended.length < 5) {
-        for (final id in availableIds) {
-          if (!recommended.contains(id)) {
-            recommended.add(id);
-            if (recommended.length >= 5) break;
-          }
-        }
-      }
-
-      return recommended.take(5).toList();
-    } catch (e) {
-      return availableIds.take(5).toList();
+    if (availableEvents.isEmpty) {
+      return [];
     }
+
+    // 1. Initialize scores
+    Map<String, int> scores = {};
+    for (var event in availableEvents) {
+      scores[event.id] = 0;
+    }
+
+    // Normalize user preferences to lowercase for safe comparison
+    final normalizedUserPrefs = userCategories.map((c) => c.toLowerCase()).toList();
+
+    // 2. Rule 1: User Preferences (+10 points)
+    for (var event in availableEvents) {
+      if (normalizedUserPrefs.contains(event.category.toLowerCase())) {
+        scores[event.id] = (scores[event.id] ?? 0) + 10;
+      }
+    }
+
+    // 3. Rule 2: Saved Behavior (+5 points per save of the same category)
+    Map<String, int> savedCatCounts = {};
+    for (var c in userSavedCategories) {
+      final key = c.toLowerCase();
+      savedCatCounts[key] = (savedCatCounts[key] ?? 0) + 1;
+    }
+    for (var event in availableEvents) {
+      int saves = savedCatCounts[event.category.toLowerCase()] ?? 0;
+      scores[event.id] = (scores[event.id] ?? 0) + (saves * 5);
+    }
+
+    // 4. Rule 3: Viewed Behavior (+2 points per view of the same category)
+    Map<String, int> viewedCatCounts = {};
+    for (var c in userViewedCategories) {
+      final key = c.toLowerCase();
+      viewedCatCounts[key] = (viewedCatCounts[key] ?? 0) + 1;
+    }
+    for (var event in availableEvents) {
+      int views = viewedCatCounts[event.category.toLowerCase()] ?? 0;
+      scores[event.id] = (scores[event.id] ?? 0) + (views * 2);
+    }
+
+    // 5. Rule 4: Urgency
+    final now = DateTime.now();
+    for (var event in availableEvents) {
+      final diff = event.date.difference(now).inDays;
+      if (diff >= 0 && diff <= 30) {
+        scores[event.id] = (scores[event.id] ?? 0) + 5;
+      } else if (diff > 30 && diff <= 60) {
+        scores[event.id] = (scores[event.id] ?? 0) + 3;
+      } else if (diff > 60 && diff <= 90) {
+        scores[event.id] = (scores[event.id] ?? 0) + 1;
+      }
+    }
+
+    // 6. Sort and return top 5
+    var sortedEvents = availableEvents.toList();
+    sortedEvents.sort((a, b) {
+      int scoreA = scores[a.id] ?? 0;
+      int scoreB = scores[b.id] ?? 0;
+      if (scoreB != scoreA) {
+        return scoreB.compareTo(scoreA); // Descending order of score
+      } else {
+        // Tie-breaker: Soonest date first
+        return a.date.compareTo(b.date);
+      }
+    });
+
+    return sortedEvents.take(5).map((e) => e.id).toList();
   }
 }
