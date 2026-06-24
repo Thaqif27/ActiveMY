@@ -34,7 +34,7 @@ class FirestoreService {
       _db.collection('scraper_logs');
 
   DocumentReference<Map<String, dynamic>> get _scraperSettings =>
-      _db.collection('scraper_settings').doc('settings');
+      _db.collection('settings').doc('scraper_settings');
 
   Future<void> createUserIfMissing(UserModel user) async {
     final doc = await _users.doc(user.uid).get();

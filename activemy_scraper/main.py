@@ -495,7 +495,7 @@ async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
                 'details': results
             }
             db.collection('scraper_logs').add(log_entry)
-            db.collection('scraper_settings').document('settings').set({
+            db.collection('settings').document('scraper_settings').set({
                 'last_run': log_entry['timestamp'],
                 'status': log_entry['status']
             }, merge=True)
@@ -784,10 +784,10 @@ def check_and_run_scheduled_scrape():
         return
         
     try:
-        settings_doc = db.collection('scraper_settings').document('settings').get()
+        settings_doc = db.collection('settings').document('scraper_settings').get()
         if not settings_doc.exists:
             # Create default settings
-            db.collection('scraper_settings').document('settings').set({
+            db.collection('settings').document('scraper_settings').set({
                 'enabled': True,
                 'run_hour': 2,
                 'last_run': None,
@@ -823,7 +823,7 @@ def check_and_run_scheduled_scrape():
             logger.info(f"Auto-scrape triggered for schedule hour {run_hour}")
             
             # Update status to running
-            db.collection('scraper_settings').document('settings').set({
+            db.collection('settings').document('scraper_settings').set({
                 'status': 'running'
             }, merge=True)
             
@@ -840,7 +840,7 @@ def check_and_run_scheduled_scrape():
                 status = 'error'
             
             # Update last_run
-            db.collection('scraper_settings').document('settings').set({
+            db.collection('settings').document('scraper_settings').set({
                 'last_run': datetime.now(timezone.utc),
                 'status': status
             }, merge=True)
