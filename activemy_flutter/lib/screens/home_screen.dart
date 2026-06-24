@@ -151,7 +151,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         userViewedEvents: viewedIds,
         userSavedEvents: savedIds,
         userCategories: userCategories,
-        availableEventIds: upcomingEvents.map((e) => e.id).toList(),
+        availableEvents: upcomingEvents.map((e) => {
+          'id': e.id,
+          'title': e.title,
+          'category': e.category
+        }).toList(),
       );
 
       return upcomingEvents

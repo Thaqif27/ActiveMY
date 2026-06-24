@@ -10,8 +10,9 @@ class RecommendationService {
     required List<String> userViewedEvents,
     required List<String> userSavedEvents,
     required List<String> userCategories,
-    required List<String> availableEventIds,
+    required List<Map<String, String>> availableEvents,
   }) async {
+    final availableEventIds = availableEvents.map((e) => e['id']!).toList();
     if (_apiKey.isEmpty || availableEventIds.isEmpty) {
       return availableEventIds.take(5).toList();
     }
@@ -21,7 +22,7 @@ class RecommendationService {
         viewedEvents: userViewedEvents,
         savedEvents: userSavedEvents,
         categories: userCategories,
-        availableEvents: availableEventIds,
+        availableEvents: availableEvents,
       );
 
       final response = await http.post(
@@ -57,32 +58,35 @@ class RecommendationService {
     required List<String> viewedEvents,
     required List<String> savedEvents,
     required List<String> categories,
-    required List<String> availableEvents,
+    required List<Map<String, String>> availableEvents,
   }) {
+    final availableEventsString = availableEvents.map((e) => '- ID: ${e['id']} | Category: ${e['category']} | Title: ${e['title']}').join('\n');
+    
     return '''You are a sports event recommendation engine. Based on the user's activity and preferences, recommend the best events for them.
 
 User Information:
 - Preferred categories: $categories
-- Events viewed: ${viewedEvents.isEmpty ? 'None' : viewedEvents.join(', ')}
-- Events saved: ${savedEvents.isEmpty ? 'None' : savedEvents.join(', ')}
+- Events viewed (IDs): ${viewedEvents.isEmpty ? 'None' : viewedEvents.join(', ')}
+- Events saved (IDs): ${savedEvents.isEmpty ? 'None' : savedEvents.join(', ')}
 
-Available event IDs to choose from:
-${availableEvents.join(', ')}
+Available events to choose from:
+$availableEventsString
 
 Please recommend the top 5 most relevant event IDs from the available list. Consider:
 1. Match with user's preferred categories
 2. Similar to events they've viewed/saved
 3. Variety in event types
 
-Return ONLY the 5 event IDs as a comma-separated list, nothing else.
+Return ONLY the 5 event IDs as a comma-separated list, nothing else. Do not include any explanation or intro text.
 Example format: event_id_1,event_id_2,event_id_3,event_id_4,event_id_5''';
   }
 
   List<String> _parseRecommendations(String response, List<String> availableIds) {
     try {
-      final recommended = response
-          .trim()
-          .split(',')
+      // Remove any hallucinated intro texts
+      var cleanResponse = response.replaceAll(RegExp(r'```[a-zA-Z]*'), '').replaceAll('`', '').trim();
+      final recommended = cleanResponse
+          .split(RegExp(r'[,\n]'))
           .map((id) => id.trim())
           .where((id) => availableIds.contains(id))
           .take(5)
