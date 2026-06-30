@@ -346,16 +346,6 @@ def run_jomrun() -> List[Dict]:
         logger.error(f"JomRun failed: {e}")
         return []
 
-def run_racexasia() -> List[Dict]:
-    """Run RaceXasia scraper"""
-    try:
-        from scrapers.racexasia_scraper import RaceXasiaScraper
-        scraper = RaceXasiaScraper()
-        return scraper.scrape()
-    except Exception as e:
-        logger.error(f"RaceXasia failed: {e}")
-        return []
-
 def run_ticket2u() -> List[Dict]:
     """Run Ticket2U scraper"""
     try:
@@ -364,16 +354,6 @@ def run_ticket2u() -> List[Dict]:
         return scraper.scrape()
     except Exception as e:
         logger.error(f"Ticket2U failed: {e}")
-        return []
-
-def run_malaysiarunner() -> List[Dict]:
-    """Run Malaysia Runner scraper"""
-    try:
-        from scrapers.malaysiarunner_scraper import MalaysiaRunnerScraper
-        scraper = MalaysiaRunnerScraper()
-        return scraper.scrape()
-    except Exception as e:
-        logger.error(f"Malaysia Runner failed: {e}")
         return []
 
 def run_malaysiacyclist() -> List[Dict]:
