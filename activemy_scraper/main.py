@@ -485,9 +485,7 @@ async def run_single_scraper(source: str, triggered_by: str = "manual") -> Dict[
     
     scrapers = {
         'jomrun': run_jomrun,
-        'racexasia': run_racexasia,
         'ticket2u': run_ticket2u,
-        'malaysiarunner': run_malaysiarunner,
         'malaysiacyclist': run_malaysiacyclist,
         'sohikers': run_sohikers,
     }
