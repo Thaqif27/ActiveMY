@@ -6,8 +6,6 @@ import { Terminal, Settings, Activity, Clock, PlayCircle, AlertCircle } from 'lu
 const SCRAPERS = [
   { id: 'jomrun', name: 'JomRun' },
   { id: 'ticket2u', name: 'Ticket2U' },
-  { id: 'racexasia', name: 'RaceXasia' },
-  { id: 'malaysiarunner', name: 'Malaysia Runner' },
   { id: 'malaysiacyclist', name: 'Malaysia Cyclist' },
   { id: 'sohikers', name: 'So Hikers' }
 ];

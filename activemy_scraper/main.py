@@ -66,18 +66,14 @@ except Exception as e:
 # ============ SCRAPER IMPORTS (6 working scrapers) ============
 try:
     from scrapers.jomrun_scraper import JomRunScraper
-    from scrapers.racexasia_scraper import RaceXasiaScraper
     from scrapers.ticket2u_scraper import Ticket2UScraper
-    from scrapers.malaysiarunner_scraper import MalaysiaRunnerScraper
     from scrapers.malaysiacyclist_scraper import MalaysiaCyclistScraper
     from scrapers.sohikers_scraper import SoHikersScraper
     logger.info("Imported scrapers from scrapers/ folder")
 except ImportError as e:
     logger.error(f"Failed to import scrapers: {e}")
     from scrapers.jomrun_scraper import JomRunScraper
-    from scrapers.racexasia_scraper import RaceXasiaScraper
     from scrapers.ticket2u_scraper import Ticket2UScraper
-    from scrapers.malaysiarunner_scraper import MalaysiaRunnerScraper
     from scrapers.malaysiacyclist_scraper import MalaysiaCyclistScraper
     from scrapers.sohikers_scraper import SoHikersScraper
     logger.info("Imported scrapers from current directory")
@@ -98,83 +94,8 @@ else:
 _location_cache = {}
 
 def process_event_with_ai_json(event_data: Dict) -> Dict:
-    """Use Gemini 1.5 Flash Vision to extract structured location and category data"""
-    title = event_data.get('title', '')
-    raw_loc = event_data.get('location', '')
-    desc = event_data.get('description', '')
-    raw_cat = event_data.get('category', '')
-    image_url = event_data.get('image_url', '')
-    
-    cache_key = f"{title}_{raw_loc[:30]}"
-    if cache_key in _location_cache:
-        return _location_cache[cache_key]
-        
-    prompt = f"""
-    Analyze this sporting event poster image and text details to extract precise information.
-    
-    Title: {title}
-    Raw Location: {raw_loc}
-    Category: {raw_cat}
-    Description: {desc[:500]}
-    
-    Tasks:
-    1. Identify the EXACT physical venue name from the poster image (e.g., "Penang Waterfront Convention Centre", "Dataran Merdeka"). NEVER use generic section headers like "About", "Overview", "Venue", "Location" as the venue name. If the venue is unknown, return "null". If the event is fully virtual with no physical location, set the venue to "VIRTUAL". If it's a HYBRID event, return the actual physical venue and set is_virtual to true.
-    2. Determine the City and State in Malaysia.
-    3. Determine if the event is hosted inside Malaysia. If it is clearly hosted in another country, set is_malaysia to false.
-    4. Refine the category to STRICTLY one of these: ["running", "cycling", "hiking", "triathlon", "adventure"]. If unsure, default to "running".
-    5. Output the result in JSON format EXACTLY matching this schema:
-    {{
-        "venue": "String",
-        "city": "String",
-        "state": "String",
-        "is_malaysia": true,
-        "is_virtual": false,
-        "category": "String"
-    }}
-    """
-    
-    try:
-        import time
-        import json
-        import requests
-        import PIL.Image
-        import io
-        
-        if not gemini_model:
-            logger.error("Gemini model not initialized")
-            return None
-            
-        contents = [prompt]
-        
-        if image_url:
-            try:
-                img_response = requests.get(image_url, timeout=10)
-                if img_response.status_code == 200:
-                    img = PIL.Image.open(io.BytesIO(img_response.content))
-                    contents.insert(0, img)
-            except Exception as img_err:
-                logger.warning(f"Failed to fetch image for Gemini: {img_err}")
-                
-        for attempt in range(3):
-            try:
-                time.sleep(10.0) # Very safe delay to avoid 20 RPM limit completely
-                response = gemini_model.generate_content(contents)
-                text = response.text
-                data = json.loads(text)
-                _location_cache[cache_key] = data
-                return data
-            except Exception as retry_err:
-                if '429' in str(retry_err) or 'quota' in str(retry_err).lower() or 'exhausted' in str(retry_err).lower():
-                    logger.warning(f"Rate limit hit, sleeping for 30s before retry {attempt+1}... ({retry_err})")
-                    time.sleep(30)
-                else:
-                    logger.error(f"AI generation error: {retry_err}")
-                    return None
-                    
-        return None
-    except Exception as e:
-        logger.error(f"AI setup failed: {e}")
-        return None
+    """Disabled heavy Vision AI to prevent rate limits. Relies on Deep Scraping & Geocoding."""
+    return None
 
 def geocode_location(location: str) -> tuple:
     """Convert address to lat/lng"""
@@ -493,9 +414,7 @@ async def run_all_scrapers(triggered_by: str = "manual") -> Dict[str, Dict]:
     
     scrapers = {
         'jomrun': run_jomrun,
-        'racexasia': run_racexasia,
         'ticket2u': run_ticket2u,
-        'malaysiarunner': run_malaysiarunner,
         'malaysiacyclist': run_malaysiacyclist,
         'sohikers': run_sohikers,
     }
