@@ -31,6 +31,9 @@ class RoutePaths {
   static const String notifications = '/notifications';
   static const String profile = '/profile';
   static const String eventDetail = '/event/:id';
+  static const String eventChat = '/event/:id/chat';
+  static const String privateChat = '/chat/:chatId';
+  static const String inbox = '/inbox';
   
   static const String adminDashboard = '/admin/dashboard';
   static const String adminMap = '/admin/map';

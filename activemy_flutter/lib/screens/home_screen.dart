@@ -165,7 +165,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   List<String>? _getCategoryFilter() {
     if (_selectedCategory == 'All' ||
         _selectedCategory == 'Virtual' ||
-        _selectedCategory == 'Hybrid') return null;
+        _selectedCategory == 'Hybrid') {
+      return null;
+    }
     return [_selectedCategory.toLowerCase()];
   }
 
@@ -220,6 +222,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       : 'Explorer',
                   animation: _heroAnim,
                   onNotification: () => context.go(RoutePaths.notifications),
+                  onInbox: () => context.go(RoutePaths.inbox),
                   onSearch: () => context.go(RoutePaths.search),
                   onMap: () => context.go(RoutePaths.map),
                 ),
@@ -462,6 +465,7 @@ class _WaveHero extends StatelessWidget {
   final String userName;
   final Animation<double> animation;
   final VoidCallback onNotification;
+  final VoidCallback onInbox;
   final VoidCallback onSearch;
   final VoidCallback onMap;
 
@@ -471,6 +475,7 @@ class _WaveHero extends StatelessWidget {
     required this.userName,
     required this.animation,
     required this.onNotification,
+    required this.onInbox,
     required this.onSearch,
     required this.onMap,
   });
@@ -537,21 +542,40 @@ class _WaveHero extends StatelessWidget {
                         ),
                       ],
                     ),
-                    GestureDetector(
-                      onTap: onNotification,
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
+                    Row(
+                      children: [
+                        GestureDetector(
+                          onTap: onInbox,
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: const Icon(Icons.inbox_outlined, color: Colors.white, size: 22),
                           ),
                         ),
-                        child: const Icon(Icons.notifications_outlined,
-                            color: Colors.white, size: 22),
-                      ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: onNotification,
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

@@ -11,6 +11,7 @@ class UserModel {
   final double preferredRadiusKm;
   final String fcmToken;
   final String phoneNumber;
+  final String photoUrl;
   final String bio;
   final String emergencyContactName;
   final String emergencyContactPhone;
@@ -27,6 +28,7 @@ class UserModel {
     required this.preferredRadiusKm,
     required this.fcmToken,
     this.phoneNumber = '',
+    this.photoUrl = '',
     this.bio = '',
     this.emergencyContactName = '',
     this.emergencyContactPhone = '',
@@ -53,10 +55,10 @@ class UserModel {
       preferredCategories: List<String>.from(
         (data['preferred_categories'] as List<dynamic>? ?? const []),
       ),
-      preferredRadiusKm:
-          (data['preferred_radius_km'] as num?)?.toDouble() ?? 50,
+      preferredRadiusKm: (data['preferred_radius_km'] as num?)?.toDouble() ?? 50.0,
       fcmToken: data['fcm_token'] as String? ?? '',
       phoneNumber: data['phone_number'] as String? ?? '',
+      photoUrl: data['photo_url'] as String? ?? '',
       bio: data['bio'] as String? ?? '',
       emergencyContactName: data['emergency_contact_name'] as String? ?? '',
       emergencyContactPhone: data['emergency_contact_phone'] as String? ?? '',
@@ -76,6 +78,7 @@ class UserModel {
       'preferred_radius_km': preferredRadiusKm,
       'fcm_token': fcmToken,
       'phone_number': phoneNumber,
+      'photo_url': photoUrl,
       'bio': bio,
       'emergency_contact_name': emergencyContactName,
       'emergency_contact_phone': emergencyContactPhone,
@@ -94,6 +97,7 @@ class UserModel {
     double? preferredRadiusKm,
     String? fcmToken,
     String? phoneNumber,
+    String? photoUrl,
     String? bio,
     String? emergencyContactName,
     String? emergencyContactPhone,
@@ -110,6 +114,7 @@ class UserModel {
       preferredRadiusKm: preferredRadiusKm ?? this.preferredRadiusKm,
       fcmToken: fcmToken ?? this.fcmToken,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      photoUrl: photoUrl ?? this.photoUrl,
       bio: bio ?? this.bio,
       emergencyContactName: emergencyContactName ?? this.emergencyContactName,
       emergencyContactPhone: emergencyContactPhone ?? this.emergencyContactPhone,

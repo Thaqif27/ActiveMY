@@ -6,6 +6,9 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'models/event_model.dart';
 import 'screens/event_detail_screen.dart';
+import 'screens/event_chat_screen.dart';
+import 'screens/private_chat_screen.dart';
+import 'screens/inbox_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/map_screen.dart';
@@ -90,6 +93,25 @@ class _ActiveMYAppState extends State<ActiveMYApp> {
           final event = state.extra as EventModel;
           return EventDetailScreen(event: event);
         },
+      ),
+      GoRoute(
+        path: RoutePaths.eventChat,
+        builder: (context, state) {
+          final event = state.extra as EventModel;
+          return EventChatScreen(event: event);
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.privateChat,
+        builder: (context, state) {
+          final chatId = state.pathParameters['chatId']!;
+          final otherUserId = state.extra as String;
+          return PrivateChatScreen(chatId: chatId, otherUserId: otherUserId);
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.inbox,
+        builder: (context, state) => const InboxScreen(),
       ),
       GoRoute(
         path: RoutePaths.adminDashboard,

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:map_launcher/map_launcher.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/event_model.dart';
 import '../services/auth_service.dart';
@@ -475,6 +476,21 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         child: SafeArea(
           child: Row(
             children: [
+              // Chat Button
+              Expanded(
+                child: _AnimatedScaleButton(
+                  onTap: () => context.push('/event/${widget.event.id}/chat', extra: widget.event),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.forum_rounded, size: 24, color: AppColors.primary),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
               // Navigate Button
               Expanded(
                 child: _AnimatedScaleButton(
@@ -485,20 +501,10 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.navigation_outlined,
-                            size: 18, color: AppColors.textDark),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Navigate',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textDark,
-                            fontSize: 14,
-                          ),
-                        ),
+                        Icon(Icons.navigation_rounded, size: 24, color: AppColors.textDark),
                       ],
                     ),
                   ),

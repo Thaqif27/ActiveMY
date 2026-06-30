@@ -76,6 +76,7 @@ class FirestoreService {
     required String uid,
     required String displayName,
     required String phoneNumber,
+    required String photoUrl,
     required String bio,
     required String emergencyContactName,
     required String emergencyContactPhone,
@@ -83,6 +84,7 @@ class FirestoreService {
     return _users.doc(uid).update({
       'display_name': displayName,
       'phone_number': phoneNumber,
+      'photo_url': photoUrl,
       'bio': bio,
       'emergency_contact_name': emergencyContactName,
       'emergency_contact_phone': emergencyContactPhone,

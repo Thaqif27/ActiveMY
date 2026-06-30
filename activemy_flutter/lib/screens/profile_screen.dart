@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/event_model.dart';
 import '../models/user_model.dart';
@@ -96,6 +99,46 @@ class _ProfileScreenState extends State<ProfileScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to update search radius: $e')),
         );
+      }
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar(UserModel user) async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+      
+      if (image == null) return;
+      
+      setState(() => _updating = true);
+      
+      if (!mounted) return;
+      final firestore = context.read<FirestoreService>();
+      final File file = File(image.path);
+      final String fileName = '${user.uid}_avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final Reference storageRef = FirebaseStorage.instance.ref().child('avatars').child(fileName);
+      
+      await storageRef.putFile(file);
+      final String downloadUrl = await storageRef.getDownloadURL();
+      
+      await firestore.updateProfileDetails(
+        uid: user.uid,
+        displayName: user.displayName,
+        phoneNumber: user.phoneNumber,
+        photoUrl: downloadUrl,
+        bio: user.bio,
+        emergencyContactName: user.emergencyContactName,
+        emergencyContactPhone: user.emergencyContactPhone,
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile picture updated!')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to upload image: $e')));
       }
     } finally {
       if (mounted) setState(() => _updating = false);
@@ -292,6 +335,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   animation: _headerAnim,
                   onLogout: _handleLogout,
                   onEditProfile: () => _showEditProfileSheet(userProfile),
+                  onPickAvatar: () => _pickAndUploadAvatar(userProfile),
                 ),
               ),
 
@@ -463,12 +507,14 @@ class _ProfileHero extends StatelessWidget {
   final Animation<double> animation;
   final VoidCallback onLogout;
   final VoidCallback onEditProfile;
+  final VoidCallback onPickAvatar;
 
   const _ProfileHero({
     required this.userProfile,
     required this.animation,
     required this.onLogout,
     required this.onEditProfile,
+    required this.onPickAvatar,
   });
 
   @override
@@ -566,30 +612,60 @@ class _ProfileHero extends StatelessWidget {
               Row(
                 children: [
                   // Glowing Avatar
-                  Container(
-                    width: 78,
-                    height: 78,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.5),
-                          blurRadius: 20,
-                          spreadRadius: 2,
+                  GestureDetector(
+                    onTap: onPickAvatar,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 78,
+                          height: 78,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.5),
+                                blurRadius: 20,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: ClipOval(
+                            child: userProfile.photoUrl.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: userProfile.photoUrl,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                    errorWidget: (context, url, error) => Center(
+                                      child: Text(
+                                        initials,
+                                        style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.primary),
+                                      ),
+                                    ),
+                                  )
+                                : Center(
+                                    child: Text(
+                                      initials,
+                                      style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.primary),
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                          ),
                         ),
                       ],
                     ),
-                    child: Center(
-                        child: Text(
-                          initials,
-                          style: GoogleFonts.poppins(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
                   ),
 
                   const SizedBox(width: 18),
@@ -1514,6 +1590,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         uid: widget.user.uid,
         displayName: _nameController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
+        photoUrl: widget.user.photoUrl,
         bio: _bioController.text.trim(),
         emergencyContactName: _iceNameController.text.trim(),
         emergencyContactPhone: _icePhoneController.text.trim(),

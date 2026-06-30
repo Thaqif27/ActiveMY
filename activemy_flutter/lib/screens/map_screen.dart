@@ -331,7 +331,7 @@ class _MapScreenState extends State<MapScreen> {
         position: LatLng(currentPos.latitude, currentPos.longitude),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         infoWindow: const InfoWindow(title: '📍 You are here'),
-        zIndex: 999, // keep it on top
+        zIndexInt: 999, // keep it on top
       ));
     }
 
