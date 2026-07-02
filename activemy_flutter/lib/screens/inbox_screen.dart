@@ -37,6 +37,18 @@ class InboxScreen extends StatelessWidget {
             .orderBy('lastTimestamp', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: SelectableText(
+                  'Error loading messages:\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(color: Colors.red),
+                ),
+              ),
+            );
+          }
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -72,11 +84,16 @@ class InboxScreen extends StatelessWidget {
               final Timestamp? timestamp = data['lastTimestamp'];
               final timeString = timestamp != null ? timeago.format(timestamp.toDate(), locale: 'en_short') : '';
 
+              final bool lastMessageIsRead = data['lastMessageIsRead'] ?? true;
+              final String lastMessageSenderId = data['lastMessageSenderId'] ?? '';
+              final bool isUnread = !lastMessageIsRead && lastMessageSenderId == otherUserId;
+
               return _ChatListTile(
                 chatId: chatId,
                 otherUserId: otherUserId,
                 lastMessage: lastMessage,
                 timeString: timeString,
+                isUnread: isUnread,
               );
             },
           );
@@ -91,12 +108,14 @@ class _ChatListTile extends StatelessWidget {
   final String otherUserId;
   final String lastMessage;
   final String timeString;
+  final bool isUnread;
 
   const _ChatListTile({
     required this.chatId,
     required this.otherUserId,
     required this.lastMessage,
     required this.timeString,
+    this.isUnread = false,
   });
 
   @override
@@ -151,11 +170,32 @@ class _ChatListTile extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        lastMessage,
-                        style: GoogleFonts.inter(fontSize: 14, color: AppColors.textMid),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              lastMessage,
+                              style: GoogleFonts.inter(
+                                fontSize: 14, 
+                                color: isUnread ? AppColors.textDark : AppColors.textMid,
+                                fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isUnread) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: const BoxDecoration(
+                                color: Colors.blue,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),

@@ -42,6 +42,7 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
         'senderPhotoUrl': currentUser.photoUrl,
         'text': text,
         'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
       });
       
       // Update latest message in chat metadata
@@ -51,6 +52,8 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
           .set({
         'lastMessage': text,
         'lastTimestamp': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': currentUser.uid,
+        'lastMessageIsRead': false,
         'participants': [currentUser.uid, widget.otherUserId],
       }, SetOptions(merge: true));
 
@@ -149,6 +152,24 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
 
                         final docs = snapshot.data!.docs;
 
+                        // Mark unread incoming messages as read
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          bool updatedAny = false;
+                          for (var doc in docs) {
+                            final data = doc.data() as Map<String, dynamic>;
+                            if (data['senderId'] != currentUser.uid && (data['isRead'] == null || data['isRead'] == false)) {
+                              doc.reference.update({'isRead': true});
+                              updatedAny = true;
+                            }
+                          }
+                          if (updatedAny) {
+                            FirebaseFirestore.instance
+                                .collection('private_chats')
+                                .doc(widget.chatId)
+                                .set({'lastMessageIsRead': true}, SetOptions(merge: true));
+                          }
+                        });
+
                         return ListView.builder(
                           controller: _scrollController,
                           reverse: true,
@@ -157,12 +178,23 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
                           itemBuilder: (context, index) {
                             final data = docs[index].data() as Map<String, dynamic>;
                             final bool isMe = data['senderId'] == currentUser.uid;
+                            final bool isRead = data['isRead'] ?? false;
 
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: Row(
                                 mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
+                                  if (!isMe) ...[
+                                    CircleAvatar(
+                                      radius: 14,
+                                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                                      backgroundImage: photoUrl.isNotEmpty ? CachedNetworkImageProvider(photoUrl) : null,
+                                      child: photoUrl.isEmpty ? Text(initials, style: GoogleFonts.poppins(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold)) : null,
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
                                   Flexible(
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -180,12 +212,28 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
                                           ),
                                         ],
                                       ),
-                                      child: Text(
-                                        data['text'] ?? '',
-                                        style: GoogleFonts.inter(
-                                          color: isMe ? Colors.white : AppColors.textDark,
-                                          fontSize: 14,
-                                        ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              data['text'] ?? '',
+                                              style: GoogleFonts.inter(
+                                                color: isMe ? Colors.white : AppColors.textDark,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ),
+                                          if (isMe) ...[
+                                            const SizedBox(width: 8),
+                                            Icon(
+                                              Icons.done_all,
+                                              size: 14,
+                                              color: isRead ? Colors.blue[300] : Colors.white70,
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -211,6 +259,10 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
                           Expanded(
                             child: TextField(
                               controller: _controller,
+                              textInputAction: TextInputAction.send,
+                              onSubmitted: (_) {
+                                if (!_isSending) _sendMessage(currentUser);
+                              },
                               decoration: InputDecoration(
                                 hintText: 'Type a message...',
                                 hintStyle: GoogleFonts.inter(color: AppColors.textLight),

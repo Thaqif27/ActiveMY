@@ -245,6 +245,10 @@ class _EventChatScreenState extends State<EventChatScreen> {
                       Expanded(
                         child: TextField(
                           controller: _controller,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) {
+                            if (!_isSending) _sendMessage(currentUser);
+                          },
                           decoration: InputDecoration(
                             hintText: 'Type a message...',
                             hintStyle: GoogleFonts.inter(color: AppColors.textLight),

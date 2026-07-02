@@ -221,10 +221,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ? user.displayName.split(' ').first
                       : 'Explorer',
                   animation: _heroAnim,
-                  onNotification: () => context.go(RoutePaths.notifications),
-                  onInbox: () => context.go(RoutePaths.inbox),
-                  onSearch: () => context.go(RoutePaths.search),
-                  onMap: () => context.go(RoutePaths.map),
+                  onNotification: () => context.push(RoutePaths.notifications),
+                  onInbox: () => context.push(RoutePaths.inbox),
+                  onSearch: () => context.push(RoutePaths.search),
+                  onMap: () => context.push(RoutePaths.map),
                 ),
               ),
 
