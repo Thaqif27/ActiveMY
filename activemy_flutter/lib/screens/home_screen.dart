@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/event_model.dart';
 import '../models/user_model.dart';
@@ -556,7 +557,47 @@ class _WaveHero extends StatelessWidget {
                                 color: Colors.white.withValues(alpha: 0.2),
                               ),
                             ),
-                            child: const Icon(Icons.inbox_outlined, color: Colors.white, size: 22),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                const Icon(Icons.inbox_outlined, color: Colors.white, size: 22),
+                                StreamBuilder<QuerySnapshot>(
+                                  stream: FirebaseAuth.instance.currentUser != null ? FirebaseFirestore.instance
+                                      .collection('private_chats')
+                                      .where('participants', arrayContains: FirebaseAuth.instance.currentUser!.uid)
+                                      .snapshots() : null,
+                                  builder: (context, snapshot) {
+                                    if (!snapshot.hasData) return const SizedBox.shrink();
+                                    
+                                    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+                                    bool hasUnread = snapshot.data!.docs.any((doc) {
+                                      final data = doc.data() as Map<String, dynamic>;
+                                      final bool lastMessageIsRead = data['lastMessageIsRead'] ?? true;
+                                      final String lastMessageSenderId = data['lastMessageSenderId'] ?? '';
+                                      
+                                      // It's unread if the last message is NOT read, and the sender is NOT the current user
+                                      return !lastMessageIsRead && lastMessageSenderId != '' && lastMessageSenderId != currentUserId;
+                                    });
+
+                                    if (!hasUnread) return const SizedBox.shrink();
+
+                                    return Positioned(
+                                      top: -2,
+                                      right: -2,
+                                      child: Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: Colors.redAccent,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: AppColors.primary, width: 2),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
