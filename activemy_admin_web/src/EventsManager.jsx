@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, deleteDoc, limit } from 'firebase/firestore';
+import { collection, query, getDocs, doc, deleteDoc, limit, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { Calendar, MapPin, Trash2, Folder } from 'lucide-react';
+import { Calendar, MapPin, Trash2, Folder, Plus, X } from 'lucide-react';
 
 export default function EventsManager() {
   const [events, setEvents] = useState([]);
@@ -10,6 +10,11 @@ export default function EventsManager() {
   const [selectedCat, setSelectedCat] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '', description: '', category: 'Running', date: '', location: '', imageUrl: '', price: 'Free', lat: '0', lng: '0', isVirtual: false
+  });
 
   const categories = ['All', 'Running', 'Cycling', 'Hiking', 'Triathlon', 'Virtual'];
   const statuses = ['All', 'Active', 'Past'];
@@ -53,6 +58,43 @@ export default function EventsManager() {
       } catch (error) {
         alert("Failed to delete event.");
       }
+    }
+  };
+
+  const handleAddSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.title || !formData.date || !formData.location) {
+      alert("Title, Date, and Location are required.");
+      return;
+    }
+    
+    try {
+      const eventData = {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        date: new Date(formData.date),
+        location: formData.location,
+        lat: parseFloat(formData.lat) || 0.0,
+        lng: parseFloat(formData.lng) || 0.0,
+        source: "Admin",
+        original_url: "",
+        image_url: formData.imageUrl,
+        price: formData.price,
+        scraped_at: new Date(),
+        is_active: true,
+        is_virtual: formData.isVirtual
+      };
+      await addDoc(collection(db, 'events'), eventData);
+      alert("Event added successfully!");
+      setShowAddModal(false);
+      setFormData({
+        title: '', description: '', category: 'Running', date: '', location: '', imageUrl: '', price: 'Free', lat: '0', lng: '0', isVirtual: false
+      });
+      fetchEvents();
+    } catch (error) {
+      console.error("Error adding event: ", error);
+      alert("Failed to add event.");
     }
   };
 
@@ -104,9 +146,18 @@ export default function EventsManager() {
 
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-4rem)] p-2 text-slate-900">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-slate-800 mb-2">Manage Aggregated Events</h2>
-        <p className="text-slate-500">Welcome back, manage your system here. Events are sorted by their event date.</p>
+      <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Manage Aggregated Events</h2>
+          <p className="text-slate-500">Welcome back, manage your system here. Events are sorted by their event date.</p>
+        </div>
+        <button 
+          onClick={() => setShowAddModal(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium flex items-center shadow-sm transition-colors shrink-0"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Add Event
+        </button>
       </div>
 
       <div className="mb-6">
@@ -222,6 +273,87 @@ export default function EventsManager() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Add Event Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100">
+              <h3 className="text-xl font-bold text-slate-800">Add New Event</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              <form id="add-event-form" onSubmit={handleAddSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Event Title *</label>
+                    <input type="text" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <textarea rows="3" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500"></textarea>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                    <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                      {categories.filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Event Date *</label>
+                    <input type="datetime-local" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Location *</label>
+                    <input type="text" required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Latitude</label>
+                    <input type="number" step="any" value={formData.lat} onChange={e => setFormData({...formData, lat: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Longitude</label>
+                    <input type="number" step="any" value={formData.lng} onChange={e => setFormData({...formData, lng: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Image URL</label>
+                    <input type="url" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="https://..." />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Price</label>
+                    <input type="text" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                  </div>
+                  
+                  <div className="flex items-center mt-6">
+                    <input type="checkbox" id="isVirtual" checked={formData.isVirtual} onChange={e => setFormData({...formData, isVirtual: e.target.checked})} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                    <label htmlFor="isVirtual" className="ml-2 block text-sm text-slate-700">Virtual Event</label>
+                  </div>
+                </div>
+              </form>
+            </div>
+            
+            <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-xl">
+              <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+                Cancel
+              </button>
+              <button type="submit" form="add-event-form" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                Save Event
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
