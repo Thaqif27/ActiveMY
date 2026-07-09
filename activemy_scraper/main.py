@@ -118,7 +118,7 @@ def process_event_with_ai_json(event_data: Dict) -> Dict:
     - venue: precise physical venue name (e.g., 'Dataran Merdeka'). If virtual/online, return 'VIRTUAL'. If unknown, return 'Malaysia'.
     - city: city name (e.g., 'Kuala Lumpur')
     - state: state in Malaysia
-    - category: 'running', 'cycling', 'hiking', or 'obstacle'
+    - category: strictly ONE of: 'running', 'cycling', or 'hiking'. (Triathlon -> 'running' or 'cycling'). Do NOT use 'virtual'.
     - is_virtual: true/false
     - is_malaysia: true/false
     """

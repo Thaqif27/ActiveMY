@@ -22,7 +22,7 @@ export default function EventsManager() {
     title: '', description: '', category: 'Running', date: '', location: '', imageUrl: '', price: 'Free', lat: '0', lng: '0', isVirtual: false
   });
 
-  const categories = ['All', 'Running', 'Cycling', 'Hiking', 'Triathlon', 'Virtual'];
+  const categories = ['All', 'Running', 'Cycling', 'Hiking'];
   const statuses = ['All', 'Active', 'Past'];
 
   // Calculate today's date at midnight for comparison
@@ -175,8 +175,6 @@ export default function EventsManager() {
     let matchesCat = false;
     if (selectedCat === 'All') {
       matchesCat = true;
-    } else if (selectedCat.toLowerCase() === 'virtual') {
-      matchesCat = e.is_virtual === true || (e.category || '').toLowerCase() === 'virtual';
     } else {
       matchesCat = (e.category || '').toLowerCase() === selectedCat.toLowerCase();
     }

@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'ActiveMY';
-  static const List<String> categories = ['Running', 'Cycling', 'Hiking', 'Virtual', 'Hybrid'];
+  static const List<String> categories = ['Running', 'Cycling', 'Hiking'];
   static const double defaultRadiusKm = 50;
   static const List<double> radiusOptionsKm = [10, 50, 100, double.infinity];
   static const int maxRecommendations = 5;

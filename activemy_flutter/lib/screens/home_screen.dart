@@ -36,8 +36,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     'Running',
     'Hiking',
     'Cycling',
-    'Virtual',
-    'Hybrid',
   ];
 
   @override
@@ -300,14 +298,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   }
                   var events = snap.data ?? [];
 
-                  // Client-side filter
-                  if (_selectedCategory == 'Virtual') {
-                    events = events
-                        .where((e) => e.isVirtual && !e.isHybrid)
-                        .toList();
-                  } else if (_selectedCategory == 'Hybrid') {
-                    events = events.where((e) => e.isHybrid).toList();
-                  }
+
 
                   if (events.isEmpty) {
                     return const SliverToBoxAdapter(
@@ -1270,7 +1261,7 @@ class _EventListCardState extends State<_EventListCard>
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      'VIRTUAL RUN',
+                                      'VIRTUAL',
                                       style: GoogleFonts.inter(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w800,
