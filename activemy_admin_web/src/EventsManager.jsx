@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { collection, query, getDocs, doc, deleteDoc, limit, addDoc } from 'firebase/firestore';
-import { db } from './firebase';
-import { Calendar, MapPin, Trash2, Folder, Plus, X } from 'lucide-react';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from './firebase';
+import { Calendar, MapPin, Trash2, Folder, Plus, X, Upload } from 'lucide-react';
 
 export default function EventsManager() {
   const [events, setEvents] = useState([]);
@@ -12,6 +13,11 @@ export default function EventsManager() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const locationInputRef = useRef(null);
+  const autocompleteRef = useRef(null);
+  
   const [formData, setFormData] = useState({
     title: '', description: '', category: 'Running', date: '', location: '', imageUrl: '', price: 'Free', lat: '0', lng: '0', isVirtual: false
   });
@@ -26,6 +32,48 @@ export default function EventsManager() {
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  // Initialize Google Maps Autocomplete
+  useEffect(() => {
+    let checkInterval;
+    
+    const initAutocomplete = () => {
+      if (showAddModal && locationInputRef.current && window.google) {
+        autocompleteRef.current = new window.google.maps.places.Autocomplete(locationInputRef.current, {
+          fields: ["formatted_address", "geometry", "name"],
+        });
+
+        autocompleteRef.current.addListener("place_changed", () => {
+          const place = autocompleteRef.current.getPlace();
+          if (place.geometry && place.geometry.location) {
+            setFormData(prev => ({
+              ...prev,
+              location: place.formatted_address || place.name,
+              lat: place.geometry.location.lat(),
+              lng: place.geometry.location.lng()
+            }));
+          }
+        });
+        return true;
+      }
+      return false;
+    };
+
+    if (showAddModal) {
+      if (!initAutocomplete()) {
+        // If not ready, check every 500ms
+        checkInterval = setInterval(() => {
+          if (initAutocomplete()) {
+            clearInterval(checkInterval);
+          }
+        }, 500);
+      }
+    }
+
+    return () => {
+      if (checkInterval) clearInterval(checkInterval);
+    };
+  }, [showAddModal]);
 
   async function fetchEvents() {
     setLoading(true);
@@ -68,7 +116,16 @@ export default function EventsManager() {
       return;
     }
     
+    setIsSaving(true);
     try {
+      let finalImageUrl = formData.imageUrl;
+      
+      if (imageFile) {
+        const imageRef = ref(storage, `event_images/${Date.now()}_${imageFile.name}`);
+        const snapshot = await uploadBytes(imageRef, imageFile);
+        finalImageUrl = await getDownloadURL(snapshot.ref);
+      }
+      
       const eventData = {
         title: formData.title,
         description: formData.description,
@@ -79,7 +136,7 @@ export default function EventsManager() {
         lng: parseFloat(formData.lng) || 0.0,
         source: "Admin",
         original_url: "",
-        image_url: formData.imageUrl,
+        image_url: finalImageUrl,
         price: formData.price,
         scraped_at: new Date(),
         is_active: true,
@@ -88,6 +145,7 @@ export default function EventsManager() {
       await addDoc(collection(db, 'events'), eventData);
       alert("Event added successfully!");
       setShowAddModal(false);
+      setImageFile(null);
       setFormData({
         title: '', description: '', category: 'Running', date: '', location: '', imageUrl: '', price: 'Free', lat: '0', lng: '0', isVirtual: false
       });
@@ -95,6 +153,8 @@ export default function EventsManager() {
     } catch (error) {
       console.error("Error adding event: ", error);
       alert("Failed to add event.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -314,7 +374,15 @@ export default function EventsManager() {
                   
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Location *</label>
-                    <input type="text" required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                    <input 
+                      type="text" 
+                      required 
+                      ref={locationInputRef}
+                      value={formData.location} 
+                      onChange={e => setFormData({...formData, location: e.target.value})} 
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                      placeholder="Search for a place..."
+                    />
                   </div>
                   
                   <div>
@@ -328,8 +396,24 @@ export default function EventsManager() {
                   </div>
                   
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Image URL</label>
-                    <input type="url" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="https://..." />
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Upload Event Image</label>
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={e => {
+                        if (e.target.files[0]) {
+                          setImageFile(e.target.files[0]);
+                          setFormData({...formData, imageUrl: ''});
+                        }
+                      }} 
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm" 
+                    />
+                    <div className="text-xs text-slate-500 mt-1">Or provide an image URL below if you don't have a file.</div>
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Image URL (Optional)</label>
+                    <input type="url" disabled={!!imageFile} value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100" placeholder="https://..." />
                   </div>
                   
                   <div>
@@ -349,8 +433,8 @@ export default function EventsManager() {
               <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
                 Cancel
               </button>
-              <button type="submit" form="add-event-form" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-                Save Event
+              <button type="submit" disabled={isSaving} form="add-event-form" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 flex items-center">
+                {isSaving ? 'Saving...' : 'Save Event'}
               </button>
             </div>
           </div>

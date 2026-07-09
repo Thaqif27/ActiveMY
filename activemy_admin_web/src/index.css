@@ -6,3 +6,8 @@
     @apply bg-slate-50 text-slate-900;
   }
 }
+
+/* Ensure Google Maps Autocomplete dropdown is visible above all modals */
+.pac-container {
+  z-index: 100000 !important;
+}
