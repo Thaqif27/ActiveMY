@@ -94,8 +94,43 @@ else:
 _location_cache = {}
 
 def process_event_with_ai_json(event_data: Dict) -> Dict:
-    """Disabled heavy Vision AI to prevent rate limits. Relies on Deep Scraping & Geocoding."""
-    return None
+    """Smart AI Data Cleansing: Only trigger if data is missing or generic to save rate limits."""
+    if not gemini_model:
+        return None
+        
+    title = event_data.get('title', '')
+    description = event_data.get('description', '')
+    location = event_data.get('location', '')
+    
+    # SMART TRIGGER: Only process if location is missing, generic, or if it's virtual
+    is_generic_location = not location or len(location) < 4 or location.lower().strip() in ['malaysia', 'virtual', 'tba', 'kuala lumpur', 'selangor']
+    
+    if not is_generic_location:
+        return None # Data looks clean, skip AI to save API limits
+        
+    prompt = f"""
+    Analyze this Malaysian sports event to extract clean data:
+    Title: {title}
+    Location: {location}
+    Description: {description[:2000]}
+    
+    Return a JSON object with:
+    - venue: precise physical venue name (e.g., 'Dataran Merdeka'). If virtual/online, return 'VIRTUAL'. If unknown, return 'Malaysia'.
+    - city: city name (e.g., 'Kuala Lumpur')
+    - state: state in Malaysia
+    - category: 'running', 'cycling', 'hiking', or 'obstacle'
+    - is_virtual: true/false
+    - is_malaysia: true/false
+    """
+    
+    try:
+        response = gemini_model.generate_content(prompt)
+        import json
+        result = json.loads(response.text)
+        return result
+    except Exception as e:
+        logger.error(f"Smart AI Cleansing failed: {e}")
+        return None
 
 def geocode_location(location: str) -> tuple:
     """Convert address to lat/lng"""
@@ -290,7 +325,7 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
             # Upload new event
             event_data = {
                 'title': event['title'][:200],
-                'description': event.get('description', '')[:500],
+                'description': event.get('description', '')[:3000],
                 'category': category,
                 'date': event_date,
                 'location': clean_location[:100],

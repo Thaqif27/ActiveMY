@@ -67,7 +67,8 @@ class JomRunScraper:
                 image_url = ''
                 img = card.find('img')
                 if img:
-                    image_url = img.get('src', '')
+                    # Often lazy loaded images use data-src or lazy-src
+                    image_url = img.get('data-src') or img.get('lazy-src') or img.get('src', '')
                     if image_url and not image_url.startswith('http'):
                         if image_url.startswith('//'):
                             image_url = 'https:' + image_url
@@ -102,14 +103,15 @@ class JomRunScraper:
                         # If not, use description
                         desc_elem = detail_soup.select_one('.description-content') or detail_soup.find('div', class_='event-description')
                         if desc_elem:
-                            description_text = desc_elem.get_text(" ", strip=True)
+                            description_text = desc_elem.get_text("\n\n", strip=True)
                             
                         # Try to find location by looking for "Location" text
                         loc_elem = detail_soup.find(string=re.compile(r'Location|Venue', re.I))
                         if loc_elem and loc_elem.parent and loc_elem.parent.parent:
                             location_text = loc_elem.parent.parent.get_text(" ", strip=True).replace('Location', '').replace('Venue', '').strip()
-                        elif description_text and 'virtual' not in title.lower():
-                            location_text = description_text[:200]  # Pass first 200 chars to Geocoder
+                        
+                        if not location_text or len(location_text) < 3:
+                            location_text = 'Malaysia'
                             
                     except Exception as e:
                         logger.debug(f"Deep scrape failed for {url_event}: {e}")
