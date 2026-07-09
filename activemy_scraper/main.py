@@ -102,8 +102,8 @@ def process_event_with_ai_json(event_data: Dict) -> Dict:
     description = event_data.get('description', '')
     location = event_data.get('location', '')
     
-    # SMART TRIGGER: Only process if location is missing, generic, or if it's virtual
-    is_generic_location = not location or len(location) < 4 or location.lower().strip() in ['malaysia', 'virtual', 'tba', 'kuala lumpur', 'selangor']
+    # SMART TRIGGER: Only process if location is missing, generic, too long (description extracted as location), or if it's virtual
+    is_generic_location = not location or len(location) < 4 or len(location) > 60 or location.lower().strip() in ['malaysia', 'virtual', 'tba', 'kuala lumpur', 'selangor']
     
     if not is_generic_location:
         return None # Data looks clean, skip AI to save API limits
