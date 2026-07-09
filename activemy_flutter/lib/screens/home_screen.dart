@@ -549,9 +549,10 @@ class _WaveHero extends StatelessWidget {
                               ),
                             ),
                             child: Stack(
+                              alignment: Alignment.center,
                               clipBehavior: Clip.none,
                               children: [
-                                const Icon(Icons.inbox_outlined, color: Colors.white, size: 22),
+                                const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 22),
                                 StreamBuilder<QuerySnapshot>(
                                   stream: FirebaseAuth.instance.currentUser != null ? FirebaseFirestore.instance
                                       .collection('private_chats')
