@@ -56,8 +56,9 @@ if not firebase_admin._apps:
         creds = credentials.Certificate(cred_dict)
     else:
         creds = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
-    firebase_admin.initialize_app(creds)
-
+    firebase_admin.initialize_app(creds, {
+        'storageBucket': 'activemy-a6bf1.firebasestorage.app'
+    })
 
 def _firebase_client():
     """Get Firestore client instance."""
