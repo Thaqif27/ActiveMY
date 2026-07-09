@@ -39,6 +39,7 @@ class EventModel {
   });
 
   bool get isHybrid => isVirtual && lat != 0.0 && lng != 0.0;
+  bool get isNewEvent => DateTime.now().difference(scrapedAt).inHours <= 24;
 
   factory EventModel.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,

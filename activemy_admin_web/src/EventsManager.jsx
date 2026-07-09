@@ -13,6 +13,7 @@ export default function EventsManager() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const [showAddModal, setShowAddModal] = useState(false);
+  const [detailEvent, setDetailEvent] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const locationInputRef = useRef(null);
@@ -275,7 +276,11 @@ export default function EventsManager() {
             const dateStr = getEventDateString(event);
             
             return (
-              <div key={event.id} className="bg-white rounded-xl overflow-hidden border border-slate-200 flex flex-col shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md">
+              <div 
+                key={event.id} 
+                onClick={() => setDetailEvent(event)}
+                className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow flex flex-col h-full group cursor-pointer"
+              >
                 {/* Image Section */}
                 <div className="relative h-48 bg-slate-100">
                   {event.image_url ? (
@@ -320,7 +325,7 @@ export default function EventsManager() {
                       {event.source || 'MANUAL'}
                     </div>
                     <button 
-                      onClick={() => handleDelete(event.id)}
+                      onClick={(e) => { e.stopPropagation(); handleDelete(event.id); }}
                       className="flex items-center px-3 py-1.5 text-xs font-medium rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1.5" />
@@ -331,6 +336,63 @@ export default function EventsManager() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {detailEvent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-start p-6 border-b border-slate-100">
+              <h3 className="text-xl font-bold text-slate-800 pr-8">{detailEvent.title}</h3>
+              <button onClick={() => setDetailEvent(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              {detailEvent.image_url && (
+                <img src={detailEvent.image_url} alt={detailEvent.title} className="w-full h-48 object-cover rounded-lg mb-6" />
+              )}
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Date & Time</label>
+                  <p className="text-sm text-slate-800">
+                    {typeof detailEvent.date === 'object' && detailEvent.date?.toDate 
+                      ? detailEvent.date.toDate().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+                      : new Date(detailEvent.date || 0).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Category</label>
+                  <p className="text-sm text-slate-800">{detailEvent.category}</p>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Location</label>
+                  <p className="text-sm text-slate-800">{typeof detailEvent.location === 'object' ? JSON.stringify(detailEvent.location) : detailEvent.location}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Description</label>
+                <div className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg">
+                  {detailEvent.description || 'No description provided.'}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
+              <button onClick={() => setDetailEvent(null)} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50">
+                Close
+              </button>
+              {detailEvent.original_url && (
+                <a href={detailEvent.original_url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center">
+                  Visit Original Website
+                </a>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
