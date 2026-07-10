@@ -125,14 +125,26 @@ def process_event_with_ai_json(event_data: Dict) -> Dict:
     - is_malaysia: true/false
     """
     
-    try:
-        response = gemini_model.generate_content(prompt)
-        import json
-        result = json.loads(response.text)
-        return result
-    except Exception as e:
-        logger.error(f"Smart AI Cleansing failed: {e}")
-        return None
+    import time
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # Sleep to strictly enforce Gemini Free Tier limits (15 RPM -> 1 request per 4 seconds)
+            time.sleep(4.5)
+            response = gemini_model.generate_content(prompt)
+            import json
+            result = json.loads(response.text)
+            return result
+        except Exception as e:
+            error_str = str(e)
+            logger.error(f"Smart AI Cleansing failed (Attempt {attempt+1}/{max_retries}): {error_str}")
+            if "429" in error_str:
+                logger.info("Rate limit hit. Sleeping for 20 seconds before retrying...")
+                time.sleep(20)
+            else:
+                return None
+                
+    return None
 
 def geocode_location(location: str) -> tuple:
     """Convert address to lat/lng"""
