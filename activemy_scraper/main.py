@@ -103,7 +103,9 @@ def process_event_with_ai_json(event_data: Dict) -> Dict:
     location = event_data.get('location', '')
     
     # SMART TRIGGER: Only process if location is missing, generic, too long (description extracted as location), or if it's virtual
-    is_generic_location = not location or len(location) < 4 or len(location) > 60 or location.lower().strip() in ['malaysia', 'virtual', 'tba', 'kuala lumpur', 'selangor']
+    # SMART TRIGGER: Only process if location is missing, generic, too long (description extracted as location), or if it's virtual
+    loc_lower = location.lower().strip()
+    is_generic_location = not location or len(location) < 4 or len(location) > 60 or loc_lower in ['malaysia', 'virtual', 'tba', 'kuala lumpur', 'selangor'] or 'singapore' in loc_lower or 'indonesia' in loc_lower
     
     if not is_generic_location:
         return None # Data looks clean, skip AI to save API limits
@@ -152,8 +154,30 @@ def geocode_location(location: str) -> tuple:
     try:
         result = gmaps.geocode(f"{location}, Malaysia")
         if result:
+            # Strictly check if it's in Malaysia (to exclude Singapore, etc)
+            is_in_malaysia = False
+            for comp in result[0].get('address_components', []):
+                if 'country' in comp.get('types', []) and comp.get('short_name') == 'MY':
+                    is_in_malaysia = True
+                    break
+                    
+            if not is_in_malaysia and 'Malaysia' not in location:
+                # Try geocoding without appending Malaysia to see if it's naturally outside
+                res_natural = gmaps.geocode(location)
+                if res_natural:
+                    for comp in res_natural[0].get('address_components', []):
+                        if 'country' in comp.get('types', []) and comp.get('short_name') == 'SG':
+                            logger.info(f"Geocoded location is in Singapore, skipping: {location}")
+                            return None, None
+            
             lat = result[0]['geometry']['location']['lat']
             lng = result[0]['geometry']['location']['lng']
+            
+            # Additional check to exclude Singapore coordinates explicitly (Lat 1.15 to 1.47, Lng 103.58 to 104.10)
+            if (1.15 <= lat <= 1.47) and (103.58 <= lng <= 104.10):
+                logger.info(f"Coordinates fall within Singapore, skipping: {location}")
+                return None, None
+                
             return lat, lng
     except Exception as e:
         logger.error(f"Geocoding failed for {location}: {e}")
