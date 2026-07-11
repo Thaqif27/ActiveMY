@@ -689,11 +689,35 @@ async def run_single_scraper(source: str, triggered_by: str = "manual") -> Dict[
 # Initialize scheduler
 scheduler = BackgroundScheduler()
 
+# ============ ADMIN EVENT LISTENER ============
+import threading
+is_initial_load = True
+
+def on_event_snapshot(col_snapshot, changes, read_time):
+    global is_initial_load
+    if is_initial_load:
+        is_initial_load = False
+        return
+        
+    for change in changes:
+        if change.type.name == 'ADDED':
+            event_data = change.document.to_dict()
+            if event_data and event_data.get('source', '').lower() == 'admin':
+                logger.info(f"Admin event added: {event_data.get('title')}! Triggering instant recommendations...")
+                # scheduled_recommendations is defined below, Python resolves it at runtime
+                threading.Thread(target=scheduled_recommendations).start()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start scheduler on startup"""
     scheduler.start()
     logger.info("Scheduler started - polling DB for schedule every 5m")
+    
+    # Attach Firestore Listener for Admin Events
+    if db:
+        db.collection('events').on_snapshot(on_event_snapshot)
+        logger.info("Admin Event Listener attached successfully.")
+        
     yield
     scheduler.shutdown()
     logger.info("Scheduler shutdown")
