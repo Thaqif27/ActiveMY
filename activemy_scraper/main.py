@@ -265,8 +265,14 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
             # Skip past events
             if event_date.date() < datetime.now().date():
                 continue
-            
             # Extract precise data with AI
+            
+            # STRICT RULE: Skip non-Malaysian events early to prevent any fallback loopholes
+            loc_lower = event.get('location', '').lower()
+            if 'singapore' in loc_lower or 'indonesia' in loc_lower or 'brunei' in loc_lower or 'thailand' in loc_lower:
+                logger.info(f"Strict rule triggered - Skipping foreign event: {event.get('title')}")
+                continue
+                
             ai_data = process_event_with_ai_json(event)
             
             is_virtual = event.get('is_virtual', False)
