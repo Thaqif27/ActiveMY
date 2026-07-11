@@ -230,6 +230,26 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
         except Exception as e:
             logger.error(f"Failed to upload base64 image: {e}")
             return ""
+
+    def download_and_upload_image(url: str) -> str:
+        import uuid
+        import requests
+        try:
+            r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+            if r.status_code == 200:
+                mime_type = r.headers.get('content-type', 'image/jpeg')
+                ext = mime_type.split("/")[1] if "/" in mime_type else "jpg"
+                bucket = storage.bucket()
+                blob = bucket.blob(f"scraped_images/{uuid.uuid4()}.{ext}")
+                blob.upload_from_string(r.content, content_type=mime_type)
+                blob.make_public()
+                return blob.public_url
+            else:
+                logger.error(f"Failed to download image {url}, status code: {r.status_code}")
+                return url
+        except Exception as e:
+            logger.error(f"Failed to download and upload image {url}: {e}")
+            return url
     
     uploaded = 0
     newly_uploaded_events = []
@@ -326,12 +346,15 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
                 doc_data = doc.to_dict()
                 updates = {}
                 
-                if event.get('image_url', '').startswith('data:image'):
-                    event['image_url'] = upload_base64_image(event['image_url'])
-                    
+                img_url = event.get('image_url', '')
+                if img_url.startswith('data:image'):
+                    img_url = upload_base64_image(img_url)
+                elif img_url.startswith('http') and 'firebasestorage.googleapis.com' not in img_url:
+                    img_url = download_and_upload_image(img_url)
+                
                 # Update image_url if it is different (handles expiring S3 URLs or missing images)
-                if event.get('image_url') and doc_data.get('image_url') != event.get('image_url'):
-                    updates['image_url'] = event['image_url']
+                if img_url and doc_data.get('image_url') != img_url:
+                    updates['image_url'] = img_url
                 
                 # Update category if the scraper found a new categorization
                 if doc_data.get('category') != event.get('category') and event.get('category'):
@@ -358,7 +381,12 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
                     logger.debug(f"Duplicate skipped: {event['title'][:50]}")
                 continue
             
-            # Upload new event
+            new_img_url = event.get('image_url', '')
+            if new_img_url.startswith('data:image'):
+                new_img_url = upload_base64_image(new_img_url)
+            elif new_img_url.startswith('http') and 'firebasestorage.googleapis.com' not in new_img_url:
+                new_img_url = download_and_upload_image(new_img_url)
+                
             event_data = {
                 'title': event['title'][:200],
                 'description': event.get('description', '')[:3000],
@@ -374,7 +402,7 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
                 },
                 'source': source,
                 'original_url': event.get('original_url', event.get('url', '')),
-                'image_url': upload_base64_image(event['image_url']) if event.get('image_url', '').startswith('data:image') else event.get('image_url', ''),
+                'image_url': new_img_url,
                 'price': event.get('price', 'Free'),
                 'scraped_at': datetime.now(timezone.utc),
                 'is_active': True,
