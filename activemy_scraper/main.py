@@ -80,22 +80,21 @@ except ImportError as e:
 
 # ============ HELPER FUNCTIONS ============
 import googlemaps
-import google.generativeai as genai
+from groq import Groq
 
 gmaps = googlemaps.Client(key=os.getenv('GOOGLE_GEOCODING_API_KEY', ''))
-gemini_api_key = os.getenv('GEMINI_API_KEY', '')
-if gemini_api_key:
-    genai.configure(api_key=gemini_api_key)
-    gemini_model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"response_mime_type": "application/json"})
+groq_api_key = os.getenv('GROQ_API_KEY', '')
+if groq_api_key:
+    groq_client = Groq(api_key=groq_api_key)
 else:
-    gemini_model = None
+    groq_client = None
 
 # Simple in-memory cache to prevent duplicate AI calls
 _location_cache = {}
 
 def process_event_with_ai_json(event_data: Dict) -> Dict:
     """Smart AI Data Cleansing: Only trigger if data is missing or generic to save rate limits."""
-    if not gemini_model:
+    if not groq_client:
         return None
         
     title = event_data.get('title', '')
@@ -129,11 +128,16 @@ def process_event_with_ai_json(event_data: Dict) -> Dict:
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            # Sleep to strictly enforce Gemini Free Tier limits (15 RPM -> 1 request per 4 seconds)
-            time.sleep(4.5)
-            response = gemini_model.generate_content(prompt)
+            # Sleep to strictly enforce Groq Free Tier limits (30 RPM -> 1 request per 2.5 seconds)
+            time.sleep(2.5)
+            response = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                temperature=0.1
+            )
             import json
-            result = json.loads(response.text)
+            result = json.loads(response.choices[0].message.content)
             return result
         except Exception as e:
             error_str = str(e)
