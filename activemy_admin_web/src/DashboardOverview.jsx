@@ -32,7 +32,8 @@ export default function DashboardOverview() {
 
         eventsDocs.forEach(doc => {
           const data = doc.data();
-          const cat = data.category || 'Uncategorized';
+          let rawCat = data.category || 'Uncategorized';
+          const cat = rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase();
           counts[cat] = (counts[cat] || 0) + 1;
           
           const eventDateObj = typeof data.date === 'object' && data.date?.toDate ? data.date.toDate() : new Date(data.date || 0);

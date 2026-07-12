@@ -900,6 +900,13 @@ async def get_stats():
         data = doc.to_dict()
         category = data.get('category', 'unknown')
         source = data.get('source', 'unknown')
+        
+        # Normalize casing to prevent duplicates (e.g. 'running' vs 'Running')
+        if isinstance(category, str):
+            category = category.title()
+        if isinstance(source, str):
+            source = source.title()
+            
         event_date = data.get('date')
         
         stats['by_category'][category] = stats['by_category'].get(category, 0) + 1
