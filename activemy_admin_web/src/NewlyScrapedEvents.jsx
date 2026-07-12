@@ -104,7 +104,7 @@ export default function NewlyScrapedEvents() {
                     <td className="px-6 py-4">
                       <div className="text-sm font-bold text-slate-900">{event.title}</div>
                       <div className="text-xs text-slate-500 mt-1 line-clamp-2">{event.description}</div>
-                      <a href={event.sourceUrl || event.original_link} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline mt-1 inline-flex items-center">
+                      <a href={event.original_url || '#'} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline mt-1 inline-flex items-center">
                         View Source <ExternalLink className="ml-1 h-3 w-3" />
                       </a>
                     </td>
