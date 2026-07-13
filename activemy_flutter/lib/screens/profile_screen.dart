@@ -24,6 +24,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   bool _updating = false;
+  final GlobalKey _savedEventsKey = GlobalKey();
 
   late AnimationController _headerController;
   late Animation<double> _headerAnim;
@@ -375,6 +376,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                       child: _AthleteStatsCard(
                         savedCount: favoritesCount,
                         categoriesCount: userProfile.preferredCategories.length,
+                        onSavedEventsTap: () {
+                          if (_savedEventsKey.currentContext != null) {
+                            Scrollable.ensureVisible(
+                              _savedEventsKey.currentContext!,
+                              duration: const Duration(milliseconds: 500),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        },
                       ),
                     ),
                   );
@@ -394,7 +404,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 
               // ─── Saved Events Section ────────────────────────────────
               SliverToBoxAdapter(
-                child: Padding(
+                child: Container(
+                  key: _savedEventsKey,
                   padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
                   child: Row(
                     children: [
@@ -1383,8 +1394,13 @@ class _NavItem extends StatelessWidget {
 class _AthleteStatsCard extends StatelessWidget {
   final int savedCount;
   final int categoriesCount;
+  final VoidCallback? onSavedEventsTap;
 
-  const _AthleteStatsCard({required this.savedCount, required this.categoriesCount});
+  const _AthleteStatsCard({
+    required this.savedCount, 
+    required this.categoriesCount,
+    this.onSavedEventsTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1419,7 +1435,12 @@ class _AthleteStatsCard extends StatelessWidget {
           const SizedBox(height: 20),
           Row(
             children: [
-              _StatItem(label: 'Saved Events', value: savedCount.toString(), icon: Icons.bookmark_rounded),
+              _StatItem(
+                label: 'Saved Events', 
+                value: savedCount.toString(), 
+                icon: Icons.bookmark_rounded,
+                onTap: onSavedEventsTap,
+              ),
               const SizedBox(width: 16),
               _StatItem(label: 'Categories', value: categoriesCount.toString(), icon: Icons.sports),
             ],
@@ -1434,13 +1455,21 @@ class _StatItem extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
+  final VoidCallback? onTap;
 
-  const _StatItem({required this.label, required this.value, required this.icon});
+  const _StatItem({
+    required this.label, 
+    required this.value, 
+    required this.icon,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.grey.shade50,
@@ -1454,6 +1483,7 @@ class _StatItem extends StatelessWidget {
             Text(value, style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textDark)),
             Text(label, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMid)),
           ],
+        ),
         ),
       ),
     );
