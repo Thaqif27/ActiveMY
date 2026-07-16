@@ -33,7 +33,35 @@ export default function MapScreen() {
             validEvents.push({ id: doc.id, ...data });
           }
         });
-        setEvents(validEvents);
+
+        // Add a slight offset to overlapping markers so they fan out and don't hide each other
+        const locationCounts = {};
+        const eventsWithOffset = validEvents.map(event => {
+          const key = `${event.lat},${event.lng}`;
+          if (!locationCounts[key]) {
+            locationCounts[key] = 0;
+          }
+          const count = locationCounts[key]++;
+          
+          let latOffset = 0;
+          let lngOffset = 0;
+          
+          if (count > 0) {
+            // Radius expands slightly with more items
+            const radius = 0.00015 * Math.ceil(count / 8); 
+            const angle = (count * 45) * (Math.PI / 180);
+            latOffset = radius * Math.cos(angle);
+            lngOffset = radius * Math.sin(angle);
+          }
+          
+          return {
+            ...event,
+            displayLat: event.lat + latOffset,
+            displayLng: event.lng + lngOffset
+          };
+        });
+
+        setEvents(eventsWithOffset);
       } catch (e) {
         console.error("Error fetching map events:", e);
       } finally {
@@ -91,7 +119,7 @@ export default function MapScreen() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           {events.map(event => (
-            <Marker key={event.id} position={[event.lat, event.lng]} icon={getCategoryIcon(event.category)}>
+            <Marker key={event.id} position={[event.displayLat, event.displayLng]} icon={getCategoryIcon(event.category)}>
               <Popup>
                 <div className="w-48">
                   {event.image_url && (
