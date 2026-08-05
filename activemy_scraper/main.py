@@ -239,7 +239,12 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
         import uuid
         import requests
         try:
-            r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                'Referer': 'https://www.ticket2u.com.my/'
+            }
+            r = requests.get(url, headers=headers, timeout=10)
             if r.status_code == 200:
                 mime_type = r.headers.get('content-type', 'image/jpeg')
                 ext = mime_type.split("/")[1] if "/" in mime_type else "jpg"
@@ -271,6 +276,10 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
             loc_lower = event.get('location', '').lower()
             if 'singapore' in loc_lower or 'indonesia' in loc_lower or 'brunei' in loc_lower or 'thailand' in loc_lower:
                 logger.info(f"Strict rule triggered - Skipping foreign event: {event.get('title')}")
+                continue
+                
+            if event.get('category') == 'other':
+                logger.info(f"Skipping irrelevant event (Not Run/Cycle/Hike): {event.get('title')}")
                 continue
                 
             ai_data = process_event_with_ai_json(event)
@@ -894,7 +903,7 @@ async def get_stats():
         'upcoming_events': 0
     }
     
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     
     for doc in events:
         data = doc.to_dict()
