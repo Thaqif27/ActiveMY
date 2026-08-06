@@ -86,12 +86,22 @@ export const onLocationUpdated = functions.firestore.onDocumentUpdated(
         
         if (!after || !before) return;
         
-        // Only trigger if location changed significantly (simplistic check)
-        const latChanged = before.last_known_lat !== after.last_known_lat;
-        const lngChanged = before.last_known_lng !== after.last_known_lng;
-        
-        if (!latChanged && !lngChanged) {
-            return; // Location didn't change
+        // Spam prevention: Only trigger if the user has moved >15km from their last notified location
+        if (after.last_notified_lat && after.last_notified_lng) {
+            const distanceMovedM = geofire.distanceBetween(
+                [after.last_known_lat, after.last_known_lng],
+                [after.last_notified_lat, after.last_notified_lng]
+            ) * 1000;
+            
+            if (distanceMovedM < 15000) {
+                console.log(`Spam Prevention: User moved only ${distanceMovedM}m (needs >15km). Skipping.`);
+                return;
+            }
+        } else {
+            // Simplistic check for first time users
+            const latChanged = before.last_known_lat !== after.last_known_lat;
+            const lngChanged = before.last_known_lng !== after.last_known_lng;
+            if (!latChanged && !lngChanged) return;
         }
         
         if (!after.last_known_lat || !after.last_known_lng) {
@@ -129,24 +139,36 @@ export const onLocationUpdated = functions.firestore.onDocumentUpdated(
         // Since we are not using GeoHashes in the database currently, we fetch active events and filter in memory.
         const eventsSnap = await db.collection('events').where('is_active', '==', true).get();
         
+        const userPrefs = after.preferred_categories || [];
+        
         const nearbyEvents: any[] = [];
         for (const doc of eventsSnap.docs) {
             const evData = doc.data();
             evData.id = doc.id;
+            
+            // Filter by user's preferred categories if they have any set
+            if (userPrefs.length > 0 && !userPrefs.includes(evData.category)) {
+                continue;
+            }
+            
             if (evData.lat && evData.lng) {
                 const distanceInM = geofire.distanceBetween(userCenter, [evData.lat, evData.lng]) * 1000;
                 if (distanceInM <= radiusInM) {
+                    evData.distanceInM = distanceInM; // Store distance for sorting
                     nearbyEvents.push(evData);
                 }
             }
         }
 
         if (nearbyEvents.length === 0) {
-            console.log("No nearby events found for user.");
+            console.log("No nearby events found for user matching preferences.");
             return;
         }
 
-        // Pick the closest or first event for the notification
+        // Sort by distance (closest first)
+        nearbyEvents.sort((a, b) => a.distanceInM - b.distanceInM);
+
+        // Pick the closest event for the notification
         const suggestedEvent = nearbyEvents[0];
 
         let notificationBody = `There's a nearby event: ${suggestedEvent.title}!`;
@@ -185,9 +207,11 @@ export const onLocationUpdated = functions.firestore.onDocumentUpdated(
                 is_read: false
             });
 
-            // Update last_notified_at
+            // Update last_notified_at and last_notified location
             await db.collection('users').doc(event.params.userId).update({
-                last_notified_at: admin.firestore.FieldValue.serverTimestamp()
+                last_notified_at: admin.firestore.FieldValue.serverTimestamp(),
+                last_notified_lat: after.last_known_lat,
+                last_notified_lng: after.last_known_lng
             });
         } catch (e) {
             console.error("Failed to send nearby notification:", e);
