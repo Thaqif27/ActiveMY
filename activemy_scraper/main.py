@@ -250,9 +250,16 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
                 ext = mime_type.split("/")[1] if "/" in mime_type else "jpg"
                 bucket = storage.bucket()
                 blob = bucket.blob(f"scraped_images/{uuid.uuid4()}.{ext}")
+                
+                # Generate Firebase download token
+                token = str(uuid.uuid4())
+                blob.metadata = {"firebaseStorageDownloadTokens": token}
                 blob.upload_from_string(r.content, content_type=mime_type)
-                blob.make_public()
-                return blob.public_url
+                
+                # Construct standard Firebase Storage URL
+                from urllib.parse import quote
+                public_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{quote(blob.name, safe='')}?alt=media&token={token}"
+                return public_url
             else:
                 logger.error(f"Failed to download image {url}, status code: {r.status_code}")
                 return url
@@ -368,7 +375,7 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
                 img_url = event.get('image_url', '')
                 if img_url.startswith('data:image'):
                     img_url = upload_base64_image(img_url)
-                elif img_url.startswith('http') and 'firebasestorage.googleapis.com' not in img_url:
+                elif img_url.startswith('http') and 'ticket2u.com' in img_url and 'firebasestorage.googleapis.com' not in img_url:
                     img_url = download_and_upload_image(img_url)
                 
                 # Update image_url if it is different (handles expiring S3 URLs or missing images)
@@ -403,7 +410,7 @@ async def upload_to_firestore(events: List[Dict], source: str) -> tuple[int, Lis
             new_img_url = event.get('image_url', '')
             if new_img_url.startswith('data:image'):
                 new_img_url = upload_base64_image(new_img_url)
-            elif new_img_url.startswith('http') and 'firebasestorage.googleapis.com' not in new_img_url:
+            elif new_img_url.startswith('http') and 'ticket2u.com' in new_img_url and 'firebasestorage.googleapis.com' not in new_img_url:
                 new_img_url = download_and_upload_image(new_img_url)
                 
             event_data = {
